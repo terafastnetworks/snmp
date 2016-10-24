@@ -1,0 +1,835 @@
+
+POLATIS-SYS-MIB DEFINITIONS ::= BEGIN
+
+    -- ****************************************
+    -- Import definitions
+    IMPORTS
+        MODULE-IDENTITY, OBJECT-TYPE, 
+            NOTIFICATION-TYPE, Unsigned32, IpAddress   FROM SNMPv2-SMI
+        TEXTUAL-CONVENTION, DisplayString, TruthValue,
+            RowStatus                                  FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP, 
+            NOTIFICATION-GROUP                         FROM SNMPv2-CONF
+        polatisModules, polatisSysMIB                  FROM POLATIS-GLOBAL-REG
+        polatisEventMsg, polatisAlarmId,
+            polatisAlarmStatus, polatisAlarmUser       FROM POLATIS-EVENT-MIB;
+            
+-- ****************************************
+-- Module definition
+polatisSysMibModule MODULE-IDENTITY
+        LAST-UPDATED          "201004260000Z"    -- 26 Apr 2010
+        ORGANIZATION          "Polatis Inc."
+        CONTACT-INFO          
+        "Mail: Polatis Inc.
+               332/2 Cambridge Science Park
+               Milton Road
+               Cambridge
+               CB4 0WN
+        
+        Tel:   +44 (0)1223 424200
+                    
+        Fax:   +44 (0)1223 472015                       
+        
+        Email: support@polatis.com"
+    DESCRIPTION            
+        "This module contain definitions to control system-wide
+         parameters in the switch.
+
+         The object polatisSysCtrlRebootSys can be used to reboot
+         the system.
+
+         The object polatisSysCtrlRestartAgent can be used to restart
+         the SNMP agent.
+
+         The table polatisNetConfigTable is used to query and set
+         the system IP configuration. There is one row in the table
+         for each Ethernet interface fitted in the switch.
+
+         The table polatisInterfaceConfigTable is used to enable and 
+         disable individual switch interfaces. For example, the
+         serial port (which runs the SCPI protocol) can be disabled 
+         for additional security.
+        "
+    
+    REVISION               "201004260000Z"    -- 26 Apr 2010
+    DESCRIPTION            "Add object to control a remote lockout
+                            feature for touchscreen switches."
+
+    REVISION               "201004120000Z"    -- 12 Apr 2010
+    DESCRIPTION            "Add object to control a local lockout
+                            feature for touchscreen switches."
+
+    REVISION               "201001060000Z"    -- 06 Jan 2010
+    DESCRIPTION            "Rework notifications to include extra 
+                            information. Add notifications to be sent
+                            when the status of an alarm is updated."
+
+    REVISION               "200910140000Z"    -- 14 Oct 2009
+    DESCRIPTION            "Fix error in naming PSU event object
+                            polatisSysPsuError. Fix missing column in
+                            'polatisNetConfigEntry' object. Fix error
+                            in OBJECTS clauses of { polatisSysEventsV2
+                            <x> } objects.  Removed imported objects
+                            that are not used. Updated compliance
+                            statements."
+
+    REVISION               "200906110000Z"    -- 11 Jun 2009
+    DESCRIPTION            "Add object for power supply event."
+
+    REVISION               "200901200000Z"    -- 20 Jan 2009
+    DESCRIPTION            "Add objects to set and query IP address
+                            configuration. Add objects to enable and
+                            disable individual switch interfaces."
+
+    REVISION               "200708030000Z"    -- 03 Aug 2007
+    DESCRIPTION            "Add objects to retrieve product code and
+                            switch serial number"
+
+    REVISION               "200707040000Z"    -- 04 Jul 2007
+    DESCRIPTION            "Add event definitions"
+
+    REVISION               "200703290000Z"    -- 29 Mar 2007
+    DESCRIPTION            "Initial revision of this module"
+        ::= { polatisModules 2 }
+
+    
+-- ****************************************
+-- textual conventions
+PolatisInterfaceStatus ::= TEXTUAL-CONVENTION
+    STATUS       current
+    DESCRIPTION  
+        "Indicates whether a hardawre interface is running"
+    SYNTAX       INTEGER { enabled (1),    -- interface is running
+                           disabled (2) }  -- interface is disabled
+
+
+-- ****************************************
+-- Configuration definitions
+polatisSysConf OBJECT IDENTIFIER ::= { polatisSysMIB 1 }
+
+polatisSysGroups OBJECT IDENTIFIER ::= { polatisSysConf 1 }
+
+polatisSysCompls OBJECT IDENTIFIER ::= { polatisSysConf 2 }
+
+
+-- ****************************************
+-- Object definitions
+polatisSysObjs OBJECT IDENTIFIER ::= { polatisSysMIB 2 }
+
+polatisSysCtrlObjs OBJECT IDENTIFIER ::= { polatisSysObjs 1 }
+
+polatisSysInfoObjs OBJECT IDENTIFIER ::= { polatisSysObjs 2 }
+
+polatisSysConfigObjs OBJECT IDENTIFIER ::= { polatisSysObjs 3 }
+
+polatisSysNetConfigObjs OBJECT IDENTIFIER ::= { polatisSysConfigObjs 1 }
+
+polatisSysInterfaceConfigObjs OBJECT IDENTIFIER ::= { polatisSysConfigObjs 2 }
+
+-- ****************************************
+-- Event definitions
+polatisSysEvents OBJECT IDENTIFIER ::= { polatisSysMIB 3 }
+
+polatisSysEventsV2 OBJECT IDENTIFIER ::= { polatisSysEvents 0 }
+
+polatisSysEventObjects OBJECT IDENTIFIER ::= { polatisSysEvents 1 }
+
+
+-- ****************************************
+-- System control objects
+polatisSysCtrlRebootSys OBJECT-TYPE
+    SYNTAX      INTEGER { running    (1),   -- System is running
+                          reboot     (2) }  -- Reboots network card
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+        "When read this object will always return a value of 'running'.
+         When 'reboot' is written to this object the network interface
+         card will reboot."
+    ::= { polatisSysCtrlObjs 1 }
+
+polatisSysCtrlRestartAgent OBJECT-TYPE
+    SYNTAX      INTEGER { running    (1),   -- agent is running
+                          restart    (2) }  -- Restarts agent
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+        "When read this object will always return a value of 'running'.
+         When 'restart' is written to this object the SNMP agent will
+         restart."
+    ::= { polatisSysCtrlObjs 2 }
+
+polatisSysCtrlLocalLock OBJECT-TYPE
+    SYNTAX      INTEGER { unlocked    (1),   -- Local ctrls available
+                          locked      (2) }  -- Local ctrls locked out
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+        "This object is only relevant to switches fitted with a
+         touchscreen panel.
+
+         When read this object returns a value indicating whether the
+         local controls (ie. on the touchscreen panel) are available
+         for use or locked. The status of the local controls is set by
+         writing a value to this object.
+
+         When the local controls are locked the current state of the
+         switch can be viewed but not modified.
+
+         Note that the local controls can also be unlocked by means of
+         an override on the touchscreen."
+    ::= { polatisSysCtrlObjs 3 }
+
+polatisSysCtrlRemoteLock OBJECT-TYPE
+    SYNTAX      INTEGER { unlocked    (1),   -- Remote ctrls available
+                          locked      (2) }  -- Remote ctrls locked out
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+        "This object is only relevant to switches fitted with a
+         touchscreen panel.
+
+         When read this object returns a value indicating whether
+         remote controls (ie. all network interfaces, including SNMP)
+         are available for use or locked. The status of the remote
+         controls is set by writing a value to this object.
+
+         When remote controls are locked the current state of the
+         switch can be viewed using network interfaces but not
+         modified. 
+
+         Note that this object can always be used to unlock remote
+         controls (dependent on SNMP access permissions).
+         "
+    ::= { polatisSysCtrlObjs 4 }
+
+
+
+-- ****************************************
+-- System information objects
+polatisSysInfoProductCode OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "This object returns the Product Code of the switch"
+    ::= { polatisSysInfoObjs 1 }
+
+polatisSysInfoSerialNumber OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "This object returns the serial number of the switch"
+    ::= { polatisSysInfoObjs 2 }
+
+polatisSysInfoFirmwareVersion OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "This object returns the version number of the firmware"
+    ::= { polatisSysInfoObjs 3 }
+
+
+
+-- ****************************************
+-- System configuration objects
+polatisNetConfigTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PolatisNetConfigEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "The list of network configurations in the switch."
+    ::= { polatisSysNetConfigObjs 1 }
+
+polatisNetConfigEntry OBJECT-TYPE
+    SYNTAX      PolatisNetConfigEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "An entry in the list of network configurations in the switch"
+    INDEX   { polatisNetConfigIndex }
+    ::= { polatisNetConfigTable 1 }
+
+PolatisNetConfigEntry ::= SEQUENCE {
+    polatisNetConfigIndex Unsigned32,
+    polatisNetConfigIpAddress IpAddress,
+    polatisNetConfigGateway IpAddress,
+    polatisNetConfigSubnet IpAddress,
+    polatisNetConfigBroadcast IpAddress,
+    polatisNetConfigAutoAddr TruthValue,
+    polatisNetConfigStatus RowStatus }
+
+polatisNetConfigIndex OBJECT-TYPE
+    SYNTAX      Unsigned32(1..65535)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION 
+        "The network interface index."
+    ::= { polatisNetConfigEntry 1 }
+
+polatisNetConfigIpAddress OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This object contains the IP address of the network interface."
+    ::= { polatisNetConfigEntry 2 }
+
+polatisNetConfigGateway OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This object contains the gateway address of the network interface."
+    ::= { polatisNetConfigEntry 3 }
+
+polatisNetConfigSubnet OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+
+        "This object contains the subnet mask of the network
+         interface. The switch is able to calculate this value for
+         itself and so there should never be any need to set it
+         manually.
+
+         When polatisNetConfigAutoAddr is set to true (its default
+         value) the switch automatically recalculates the subnet when
+         the IP address is changed. If polatisNetConfigAutoAddr is set
+         to false, the switch does not attempt to recalculate the
+         subnet and the user must ensure that it is correct for the IP
+         address in use.
+        "
+    ::= { polatisNetConfigEntry 4 }
+
+polatisNetConfigBroadcast OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This object contains the broadcast address of the network
+         interface. The switch is able to calculate this value for
+         itself and so there should never be any need to set it
+         manually.
+
+         When polatisNetConfigAutoAddr is set to true (its default
+         value) the switch automatically recalculates the broadcast
+         address when the IP address is changed. If
+         polatisNetConfigAutoAddr is set to false, the switch does not
+         attempt to recalculate this address and the user must ensure
+         that it is correct for the IP address in use.
+        "
+    ::= { polatisNetConfigEntry 5 }
+
+polatisNetConfigAutoAddr OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+        "
+         When set to true (its default value) the switch automatically
+         recalculates the broadcast address and subnet when the IP
+         address is changed. If this object is set to false, the
+         switch does not attempt to recalculate these addresses and
+         the user must ensure that they are correct for the IP address
+         in use.
+
+         The value of this object is read when the status of the row
+         is changed to active(1) after an IP address has been
+         modified. It does not matter whether this object is set
+         before or after the network addresses themselves have been
+         updated.
+
+         Since the switch is able to automatically calculate the
+         correct values for the subnet and broadcast addresses, this
+         value should be left at its default value under normal
+         circumstances.
+        "
+    ::= { polatisNetConfigEntry 6 }
+
+polatisNetConfigStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+        "The status of this row in the table.
+        
+         The columns in this row cannot be modified when the row
+         status is active(1). Rows cannot be created or destroyed.
+
+         To change the contents of a row, set its status to
+         notInService(2), then write the new values required. The
+         changes are stored in the agent until the row's status is
+         changed back to active(1), at which point the data is written
+         to the switch and stored in non-volatile memory.
+
+         However, the new network configuration is not used by the
+         switch until the switch is rebooted. The object
+         polatisSysCtrlRebootSys can be used to reboot the switch.
+        "
+
+    ::= { polatisNetConfigEntry 7 }
+
+
+
+-- ****************************************
+-- System interface configuration
+polatisInterfaceConfigTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PolatisInterfaceConfigEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "The list of interfaces in the switch."
+    ::= { polatisSysInterfaceConfigObjs 1 }
+
+polatisInterfaceConfigEntry OBJECT-TYPE
+    SYNTAX      PolatisInterfaceConfigEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "An entry in the list of interfaces in the switch"
+    INDEX   { polatisInterfaceConfigIndex }
+    ::= { polatisInterfaceConfigTable 1 }
+
+PolatisInterfaceConfigEntry ::= SEQUENCE {
+    polatisInterfaceConfigIndex Unsigned32,
+    polatisInterfaceConfigProtocol DisplayString,
+    polatisInterfaceConfigDevice DisplayString,
+    polatisInterfaceConfigStatus PolatisInterfaceStatus }
+
+polatisInterfaceConfigIndex OBJECT-TYPE
+    SYNTAX      Unsigned32(1..65535)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION 
+        "The interface index."
+    ::= { polatisInterfaceConfigEntry 1 }
+
+polatisInterfaceConfigProtocol OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "The communcation protocol running on this interface."
+    ::= { polatisInterfaceConfigEntry 2 }
+
+polatisInterfaceConfigDevice OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "The device parameters for this interface."
+    ::= { polatisInterfaceConfigEntry 3 }
+
+polatisInterfaceConfigStatus OBJECT-TYPE
+    SYNTAX      PolatisInterfaceStatus
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+        "The status of this interface. 
+
+        When an interface has status enabled(1) the switch will
+        configure the interface at boot time and make it available to
+        the user. When an interface has status disabled(2) the switch
+        will ignore it at boot time and the interface will be
+        unavailable.
+
+        Note that the switch will not disable an interface using a
+        command sent on that same interface. For example, the SNMP
+        interface cannot be used to disable SNMP. This is to prevent
+        the user accidentally disabling all interfaces to the switch,
+        which would render it unusable.
+
+        When an interace is switched from enabled(1) to disabled(2)
+        the new status is stored in non-volatile memory and the
+        interface is immediately blocked so that the user cannot use a
+        disabled interface to send commands. However, any existing
+        connections are left open - socket connections are not closed
+        down, for example. The switch simply ignores commands sent on
+        the blocked interface. A disabled interface is not completely
+        closed until the switch has been rebooted.
+
+        If a freshly disabled interface is switched back to enabled(1)
+        before the switch is rebooted then any blocked interfaces are
+        re-enabled and can be used again immediately. However, when an
+        interface is switched from disabled(2) to enabled(1) after the
+        switch has been rebooted, the interface will NOT be available
+        until after the next reboot.
+"
+    ::= { polatisInterfaceConfigEntry 4 }
+
+
+
+-- ****************************************
+-- Events
+
+polatisSysEventMsg OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  accessible-for-notify
+    STATUS      obsolete
+    DESCRIPTION
+        "A message providing further information about the event."
+    ::= { polatisSysEventObjects 1 }
+
+polatisSysFanWarning NOTIFICATION-TYPE
+    OBJECTS { polatisSysEventMsg }
+    STATUS obsolete
+    DESCRIPTION 
+        "A cooling fan is failing"
+    ::= { polatisSysEventsV2 1 }
+
+polatisSysFanFail NOTIFICATION-TYPE
+    OBJECTS { polatisSysEventMsg }
+    STATUS obsolete
+    DESCRIPTION 
+        "A cooling fan has failed"
+    ::= { polatisSysEventsV2 2 }
+
+polatisSysFpgaError NOTIFICATION-TYPE
+    OBJECTS { polatisSysEventMsg }
+    STATUS obsolete
+    DESCRIPTION 
+        "FPGA programming error"
+    ::= { polatisSysEventsV2 3 }
+
+polatisSysConfigError NOTIFICATION-TYPE
+    OBJECTS { polatisSysEventMsg }
+    STATUS obsolete
+    DESCRIPTION 
+        "Config file error"
+    ::= { polatisSysEventsV2 4 }
+
+polatisSysGeneralError NOTIFICATION-TYPE
+    OBJECTS { polatisSysEventMsg }
+    STATUS obsolete
+    DESCRIPTION 
+        "General system error"
+    ::= { polatisSysEventsV2 5 }
+
+polatisSysPsuError NOTIFICATION-TYPE
+    OBJECTS { polatisSysEventMsg }
+    STATUS obsolete
+    DESCRIPTION 
+        "Power supply event"
+    ::= { polatisSysEventsV2 6 }
+
+polatisSysFanWarningV2 NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmStatus,
+              polatisEventMsg }
+    STATUS current
+    DESCRIPTION 
+        "A cooling fan is failing"
+    ::= { polatisSysEventsV2 7 }
+
+polatisSysFanWarningUpdated NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmUser,
+              polatisAlarmStatus }
+    STATUS current
+    DESCRIPTION 
+        "The status of fan-failing alarm has been updated. The new status
+         is reported in this event."
+    ::= { polatisSysEventsV2 8 }
+
+polatisSysFanFailV2 NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmStatus,
+              polatisEventMsg }
+    STATUS current
+    DESCRIPTION 
+        "A cooling fan has failed"
+    ::= { polatisSysEventsV2 9 }
+
+polatisSysFanFailUpdated NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmUser,
+              polatisAlarmStatus }
+    STATUS current
+    DESCRIPTION 
+        "The status of fan-failed alarm has been updated. The new status
+         is reported in this event."
+    ::= { polatisSysEventsV2 10 }
+
+polatisSysFpgaErrorV2 NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmStatus,
+              polatisEventMsg }
+    STATUS current
+    DESCRIPTION 
+        "FPGA programming error"
+    ::= { polatisSysEventsV2 11 }
+
+polatisSysFpgaErrorUpdated NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmUser,
+              polatisAlarmStatus }
+    STATUS current
+    DESCRIPTION 
+        "The status of an FPGA programming error alarm has been updated. 
+         The new status is reported in this event."
+    ::= { polatisSysEventsV2 12 }
+
+polatisSysConfigErrorV2 NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmStatus,
+              polatisEventMsg }
+    STATUS current
+    DESCRIPTION 
+        "Config file error"
+    ::= { polatisSysEventsV2 13 }
+
+polatisSysConfigErrorUpdated NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmUser,
+              polatisAlarmStatus }
+    STATUS current
+    DESCRIPTION 
+        "The status of a Config file error alarm has been updated. The 
+         new status is reported in this event."
+    ::= { polatisSysEventsV2 14 }
+
+polatisSysGeneralErrorV2 NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmStatus,
+              polatisEventMsg }
+    STATUS current
+    DESCRIPTION 
+        "General system error"
+    ::= { polatisSysEventsV2 15 }
+
+polatisSysGeneralErrorUpdated NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmUser,
+              polatisAlarmStatus }
+    STATUS current
+    DESCRIPTION 
+        "The status of a General system error alarm has been updated. The 
+         new status is reported in this event."
+    ::= { polatisSysEventsV2 16 }
+
+polatisSysPsuErrorV2 NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmStatus,
+              polatisEventMsg }
+    STATUS current
+    DESCRIPTION 
+        "Power supply event"
+    ::= { polatisSysEventsV2 17 }
+
+polatisSysPsuErrorUpdated NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmUser,
+              polatisAlarmStatus }
+    STATUS current
+    DESCRIPTION 
+        "The status of a Power supply alarm has been updated. The 
+         new status is reported in this event."
+    ::= { polatisSysEventsV2 18 }
+
+polatisSysMissingEventError NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmStatus,
+              polatisEventMsg }
+    STATUS current
+    DESCRIPTION 
+        "An expected event did not occur in the switch"
+    ::= { polatisSysEventsV2 19 }
+
+polatisSysMissingEventErrorUpdated NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmUser,
+              polatisAlarmStatus }
+    STATUS current
+    DESCRIPTION 
+        "The status of a Missing Event alarm has been updated. The 
+         new status is reported in this event."
+    ::= { polatisSysEventsV2 20 }
+
+
+-- ****************************************
+-- Compliance statements
+polatisSysGroup OBJECT-GROUP
+    OBJECTS     { polatisSysCtrlRebootSys,
+                  polatisSysCtrlRestartAgent,
+                  polatisSysInfoProductCode,
+                  polatisSysInfoSerialNumber }
+    STATUS      deprecated
+    DESCRIPTION "Objects to control system operation and query 
+                 system information"
+    ::= { polatisSysGroups 1 }
+    
+polatisSysNotificationsGroup NOTIFICATION-GROUP
+    NOTIFICATIONS { polatisSysFanWarning,
+                    polatisSysFanFail,
+                    polatisSysFpgaError,
+                    polatisSysConfigError,
+                    polatisSysGeneralError }    
+    STATUS      obsolete
+    DESCRIPTION
+        "The notifications sent by this MIB."
+    ::= { polatisSysGroups 2 }
+
+polatisSysGroup2 OBJECT-GROUP
+    OBJECTS     { polatisSysCtrlRebootSys,
+                  polatisSysCtrlRestartAgent,
+                  polatisSysInfoProductCode,
+                  polatisSysInfoSerialNumber,
+                  polatisNetConfigIndex,
+                  polatisNetConfigIpAddress,
+                  polatisNetConfigGateway,
+                  polatisNetConfigSubnet,
+                  polatisNetConfigBroadcast,
+                  polatisNetConfigStatus }
+    STATUS      obsolete
+    DESCRIPTION "Objects to control system operation and query 
+                 system information"
+    ::= { polatisSysGroups 3 }
+    
+polatisSysGroup3 OBJECT-GROUP
+    OBJECTS     { polatisSysCtrlRebootSys,
+                  polatisSysCtrlRestartAgent,
+                  polatisSysInfoProductCode,
+                  polatisSysInfoSerialNumber,
+                  polatisSysInfoFirmwareVersion }
+    STATUS      obsolete
+    DESCRIPTION "Objects to control system operation and query 
+                 system information"
+    ::= { polatisSysGroups 4 }
+    
+polatisSysNetGroup OBJECT-GROUP
+    OBJECTS     { polatisNetConfigIpAddress,
+                  polatisNetConfigGateway,
+                  polatisNetConfigSubnet,
+                  polatisNetConfigBroadcast,
+                  polatisNetConfigAutoAddr,
+                  polatisNetConfigStatus }
+    STATUS      current
+    DESCRIPTION "Objects to control and query network configuration"
+    ::= { polatisSysGroups 5 }
+    
+polatisSysInterfaceGroup OBJECT-GROUP
+    OBJECTS     { polatisInterfaceConfigProtocol,
+                  polatisInterfaceConfigDevice,
+                  polatisInterfaceConfigStatus }
+    STATUS      current
+    DESCRIPTION "Objects to control and query user interface 
+                 configuration"
+    ::= { polatisSysGroups 6 }
+    
+polatisSysEventGroup OBJECT-GROUP
+    OBJECTS     { polatisSysEventMsg }
+    STATUS      obsolete
+    DESCRIPTION "Objects associated with System events"
+    ::= { polatisSysGroups 7 }
+
+polatisSysNotificationsGroup2 NOTIFICATION-GROUP
+    NOTIFICATIONS { polatisSysFanWarning,
+                    polatisSysFanFail,
+                    polatisSysFpgaError,
+                    polatisSysConfigError,
+                    polatisSysGeneralError,
+                    polatisSysPsuError }    
+    STATUS      obsolete
+    DESCRIPTION
+        "The notifications sent by this MIB."
+    ::= { polatisSysGroups 8 }
+
+polatisSysNotificationsGroupV3 NOTIFICATION-GROUP
+    NOTIFICATIONS { polatisSysFanWarningV2,
+                    polatisSysFanWarningUpdated,
+                    polatisSysFanFailV2,
+                    polatisSysFanFailUpdated, 
+                    polatisSysFpgaErrorV2,
+                    polatisSysFpgaErrorUpdated,
+                    polatisSysConfigErrorV2,
+                    polatisSysConfigErrorUpdated,
+                    polatisSysGeneralErrorV2,
+                    polatisSysGeneralErrorUpdated,
+                    polatisSysPsuErrorV2,                    
+                    polatisSysPsuErrorUpdated,
+                    polatisSysMissingEventError,
+                    polatisSysMissingEventErrorUpdated }    
+    STATUS      current
+    DESCRIPTION
+        "The notifications sent by this MIB."
+    ::= { polatisSysGroups 9 }
+
+polatisSysGroup4 OBJECT-GROUP
+    OBJECTS     { polatisSysCtrlRebootSys,
+                  polatisSysCtrlRestartAgent,
+                  polatisSysInfoProductCode,
+                  polatisSysInfoSerialNumber,
+                  polatisSysInfoFirmwareVersion,
+                  polatisSysCtrlLocalLock,
+                  polatisSysCtrlRemoteLock }
+    STATUS      current
+    DESCRIPTION "Objects to control system operation and query 
+                 system information"
+    ::= { polatisSysGroups 10 }
+    
+polatisSysComplianceV1 MODULE-COMPLIANCE
+    STATUS      deprecated
+    DESCRIPTION "All controllers should provide this level of support"
+    MODULE          -- this module
+    MANDATORY-GROUPS { polatisSysGroup }
+    ::= { polatisSysCompls 1 }
+    
+
+polatisSysComplianceV2 MODULE-COMPLIANCE
+    STATUS      obsolete
+    DESCRIPTION "All controllers should provide this level of support"
+    MODULE          -- this module
+    MANDATORY-GROUPS { polatisSysGroup2 }
+    ::= { polatisSysCompls 2 }
+    
+polatisSysComplianceV3 MODULE-COMPLIANCE
+    STATUS      obsolete
+    DESCRIPTION "All controllers should provide this level of support"
+    MODULE          -- this module
+    MANDATORY-GROUPS { polatisSysGroup3 }
+    ::= { polatisSysCompls 3 }
+    
+polatisSysComplianceFullV1 MODULE-COMPLIANCE
+    STATUS      obsolete
+    DESCRIPTION "Complete implementation including network and interface
+                 configuration, and notifications."
+    MODULE          -- this module
+    MANDATORY-GROUPS { polatisSysGroup3,
+                       polatisSysNetGroup,
+                       polatisSysInterfaceGroup,
+                       polatisSysNotificationsGroup2,
+                       polatisSysEventGroup }
+    ::= { polatisSysCompls 4 }
+    
+polatisSysComplianceFullV2 MODULE-COMPLIANCE
+    STATUS      obsolete
+    DESCRIPTION "Complete implementation including network and interface
+                 configuration, and notifications."
+    MODULE          -- this module
+    MANDATORY-GROUPS { polatisSysGroup3,
+                       polatisSysNetGroup,
+                       polatisSysInterfaceGroup,
+                       polatisSysNotificationsGroupV3 }
+    ::= { polatisSysCompls 5 }
+    
+polatisSysComplianceV4 MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION "All controllers should provide this level of support"
+    MODULE          -- this module
+    MANDATORY-GROUPS { polatisSysGroup4 }
+    ::= { polatisSysCompls 6 }
+    
+polatisSysComplianceFullV3 MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION "Complete implementation including network and interface
+                 configuration, and notifications."
+    MODULE          -- this module
+    MANDATORY-GROUPS { polatisSysGroup4,
+                       polatisSysNetGroup,
+                       polatisSysInterfaceGroup,
+                       polatisSysNotificationsGroupV3 }
+    ::= { polatisSysCompls 7 }
+    
+
+END
+                

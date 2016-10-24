@@ -1,0 +1,98 @@
+
+POLATIS-VIDEO-PROD-REG DEFINITIONS ::= BEGIN
+
+    -- ****************************************
+    -- Import definitions
+    IMPORTS
+        MODULE-IDENTITY                                FROM SNMPv2-SMI
+        polatisModules, polatisVideoProducts           FROM POLATIS-GLOBAL-REG;
+
+            
+-- ****************************************
+-- Module definition
+polatisVideoProdModule MODULE-IDENTITY
+        LAST-UPDATED          "200910140000Z"    -- 14 Oct 2009
+        ORGANIZATION          "Polatis Inc."
+        CONTACT-INFO          
+        "Mail: Polatis Inc.
+               332/2 Cambridge Science Park
+               Milton Road
+               Cambridge
+               CB4 0WN
+        
+        Tel:   +44 (0)1223 424200
+                    
+        Fax:   +44 (0)1223 472015                       
+        
+        Email: support@polatis.com"
+    DESCRIPTION            
+        "This module contain registrations for Polatis 
+         video products"
+    
+    REVISION               "200910140000Z"    -- 14 Oct 2009
+    DESCRIPTION            "Removed imported objects that
+                            are not used. Fix error in definition
+                            of polatisVideoVstApsNone"
+
+    REVISION               "200703290000Z"    -- 29 Mar 2007
+    DESCRIPTION            "Initial revision of this module"
+        ::= { polatisModules 1001 }
+
+    
+-- ****************************************
+-- OID registrations
+
+-- These define different network management subsystems, i.e. 
+-- not individual products as such. Each of the following support a 
+-- different subset of the SNMP object tree.
+
+-- OST products
+polatisVideoOst OBJECT IDENTIFIER 
+        ::= { polatisVideoProducts 1 }
+
+    -- Standard OST, no APS
+    polatisVideoOstStd OBJECT IDENTIFIER 
+             ::= { polatisVideoOst 1 }
+
+    -- OST with APS
+    polatisVideoOstAps OBJECT IDENTIFIER 
+             ::= { polatisVideoOst 2 }
+
+-- VST products
+polatisVideoVst OBJECT IDENTIFIER 
+        ::= { polatisVideoProducts 2 }
+
+    -- Standard VST products
+    polatisVideoVstStd OBJECT IDENTIFIER 
+             ::= { polatisVideoVst 1 }
+
+        -- VST products, no VOA
+        polatisVideoVstStdNone OBJECT IDENTIFIER 
+             ::= { polatisVideoVstStd 1 }
+
+        -- VST products, absolute VOA
+        polatisVideoVstStdAbs OBJECT IDENTIFIER 
+             ::= { polatisVideoVstStd 2 }
+
+        -- VST products, relative VOA
+        polatisVideoVstStdRel OBJECT IDENTIFIER
+             ::= { polatisVideoVstStd 3 }
+
+    -- VST products with APS
+    polatisVideoVstAps OBJECT IDENTIFIER 
+             ::= { polatisVideoVst 2 }
+
+        -- VST products, no VOA
+        polatisVideoVstApsNone OBJECT IDENTIFIER 
+             ::= { polatisVideoVstAps 1 }
+
+        -- VST products, absolute VOA
+        polatisVideoVstApsAbs OBJECT IDENTIFIER 
+             ::= { polatisVideoVstAps 2 }
+
+        -- VST products, relative VOA
+        polatisVideoVstApsRel OBJECT IDENTIFIER
+             ::= { polatisVideoVstAps 3 }
+
+END
+                

@@ -1,0 +1,320 @@
+
+POLATIS-VOA-MIB DEFINITIONS ::= BEGIN
+
+    -- ****************************************
+    -- Import definitions
+    IMPORTS
+        MODULE-IDENTITY, OBJECT-TYPE, 
+            NOTIFICATION-TYPE, Integer32, Unsigned32   FROM SNMPv2-SMI
+        DisplayString                                  FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP, 
+            NOTIFICATION-GROUP                         FROM SNMPv2-CONF
+        polatisModules, polatisVoaMIB                  FROM POLATIS-GLOBAL-REG
+        polatisOxcPortIndex                            FROM POLATIS-OXC-MIB
+        polatisEventSubSwitch                          FROM POLATIS-EVENT-MIB;
+
+            
+-- ****************************************
+-- Module definition
+polatisVoaMibModule MODULE-IDENTITY
+        LAST-UPDATED          "201001060000Z"    -- 06 Jan 2010
+        ORGANIZATION          "Polatis Inc."
+        CONTACT-INFO          
+        "Mail: Polatis Inc.
+               332/2 Cambridge Science Park
+               Milton Road
+               Cambridge
+               CB4 0WN
+        
+        Tel:   +44 (0)1223 424200
+                    
+        Fax:   +44 (0)1223 472015                       
+        
+        Email: support@polatis.com"
+    DESCRIPTION            
+        "This module contain definitions to control variable
+         optical attenuation in a Polatis switch.
+
+         The table polatisVoaConfigTable contains the VOA
+         configuration for all applicable ports (only ports fitted
+         with outupt power monitors can have attenuation set).
+        "
+    
+    REVISION               "201001060000Z"    -- 06 Jan 2010
+    DESCRIPTION            "Update event definitions"
+
+    REVISION               "200707040000Z"    -- 04 Jul 2007
+    DESCRIPTION            "Add event definitions"
+
+    REVISION               "200705100000Z"    -- 10 May 2007
+    DESCRIPTION            "Fix typo in description of 
+                            polatisVoaDesiredState"
+    
+    REVISION               "200703290000Z"    -- 29 Mar 2007
+    DESCRIPTION            "Initial revision of this module"
+        ::= { polatisModules 5 }
+
+    
+-- ****************************************
+-- Configuration definitions
+polatisVoaConf OBJECT IDENTIFIER ::= { polatisVoaMIB 1 }
+
+polatisVoaGroups OBJECT IDENTIFIER ::= { polatisVoaConf 1 }
+
+polatisVoaCompls OBJECT IDENTIFIER ::= { polatisVoaConf 2 }
+
+
+-- ****************************************
+-- Object definitions
+polatisVoaObjs OBJECT IDENTIFIER ::= { polatisVoaMIB 2 }
+
+polatisVoaPortObjs OBJECT IDENTIFIER ::= { polatisVoaObjs 1 }
+
+-- ****************************************
+-- Event definitions
+polatisVoaEvents OBJECT IDENTIFIER ::= { polatisVoaMIB 3 }
+
+polatisVoaEventsV2 OBJECT IDENTIFIER ::= { polatisVoaEvents 0 }
+
+polatisVoaEventObjects OBJECT IDENTIFIER ::= { polatisVoaEvents 1 }
+
+-- ****************************************
+-- VOA Configuration table
+polatisVoaConfigTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PolatisVoaConfigEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION 
+        "The list of VOA configurations in the switch. There is one
+         row for each port that can be attenuated.
+
+         Note that each SNMP GET or SET request to this table results
+         in a query to the underlying optical module to read its
+         state. If multiple objects need to be accessed then it is
+         more efficient to group them into a single SNMP message since
+         the agent will then make just one query to the optical
+         module. 
+"
+    ::= { polatisVoaPortObjs 1 }
+
+polatisVoaConfigEntry OBJECT-TYPE
+    SYNTAX      PolatisVoaConfigEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "An entry in the list of VOAs in the switch"
+    INDEX   { polatisOxcPortIndex }
+    ::= { polatisVoaConfigTable 1 }
+
+PolatisVoaConfigEntry ::= SEQUENCE {
+    polatisVoaLevel        INTEGER,
+    polatisVoaRefport      Unsigned32,
+    polatisVoaCurrentState INTEGER,
+    polatisVoaDesiredState INTEGER }
+
+polatisVoaLevel OBJECT-TYPE
+    SYNTAX      Integer32
+    UNITS       "mdBm"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+        "The attenuation level to be applied to the port. Note that a new
+         attenuation level is only applied when the desired state is set.
+
+         Note the units. For example, a level of -5.35dBm would be
+         expressed as -53500. However, when setting the attenuation the OPM
+         resolution is 10mdBm, so the least significant digit is
+         ignored."
+
+    ::= { polatisVoaConfigEntry 1 }
+
+polatisVoaRefport OBJECT-TYPE
+    SYNTAX      Unsigned32(1..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Reference port for attenuation (for use with relative 
+                 attenuation only). If this port is specified as zero then
+                 the default reference port will be used. The default port
+                 is the ingress to which the egress port being attenuated 
+                 is connected.
+
+                 For attenuation states other than RELATIVE this data is
+                 ignored. When reading this object, a value of zero is 
+                 returned for all modes other than RELATIVE. For relative
+                 attenuation, the value returned is the current reference
+                 port in use.
+                 "
+    ::= { polatisVoaConfigEntry  2 }
+
+polatisVoaCurrentState OBJECT-TYPE
+    SYNTAX      INTEGER{ disabled  (1),    -- no attenutation
+                         absolute  (2),    -- absolute attenuation
+                         relative  (3),    -- relative attenuation
+                         --        (4),       reserved
+                         maximum   (5),    -- max attenuation
+                         fixed     (6),    -- fixed attenuation
+                         pending   (7) }   -- change is pending a commit action
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "The current state of attenuation for the port. Note that not all
+         Polatis switches support relative attenuation. 
+         
+         When the user writes to the level or refport objects for a 
+         row, that row's status changes to 'pending'. The changes are 
+         not actioned in the switch until the desiredState object is 
+         updated. 
+         "
+
+    ::= { polatisVoaConfigEntry 3 }
+
+polatisVoaDesiredState OBJECT-TYPE
+    SYNTAX      INTEGER{ disabled  (1),    -- no attenutation
+                         absolute  (2),    -- absolute attenuation
+                         relative  (3),    -- relative attenuation
+                         --        (4),       reserved
+                         maximum   (5),    -- max attenuation
+                         fixed     (6),    -- fixed attenuation
+                         pending   (7),    -- change is pending
+                         revert    (8) }   -- pending change is cancelled
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+        "The desired state of attenuation for the port. 
+
+         When this object is updated the agent writes any pending 
+         modifications in the affected row to the switch. The 'revert'
+         state causes the agent to drop any pending modifications for the
+         affected row - i.e. to revert to the current settings for
+         attenuation of that port.
+
+         When the current state is 'disabled' it is not valid to write
+         to this object, except to set the attenuation to MAX. For all
+         other attenuation states The VOA parameters must be
+         configured first, which will automatically put the current
+         state into 'pending'. When the current state is 'pending' it
+         is valid to request the state 'revert', but otherwise this is
+         not a valid state transition.
+
+         Desired: | dis. | abs. | rel. | max. | fixed | pending | revert |
+         ---------|------|------|------|------|-------|---------|--------|
+         Current: |      |      |      |      |       |         |        |
+          dis.    |  N/A |  NO  |  NO  |  OK  |  NO   |   NO    |   NO   |
+          abs.    |  OK  |  N/A |  OK  |  OK  |  OK   |   NO    |   NO   |
+          rel.    |  OK  |  OK  |  N/A |  OK  |  OK   |   NO    |   NO   |
+          max.    |  OK  |  NO  |  NO  |  N/A |  OK   |   NO    |   NO   |
+          fixed   |  OK  |  NO  |  NO  |  OK  |  N/A  |   NO    |   NO   |
+          pending |  OK  |  OK  |  OK  |  OK  |  OK   |   N/A   |   OK   |
+          revert  |  N/A |  N/A |  N/A |  N/A |  N/A  |   N/A   |   N/A  |
+         ----------------------------------------------------------------|
+
+          Notes:
+          1) When the current state is ABSOLUTE, it is possible to switch
+             to RELATIVE using only the default reference port - i.e. 
+             this switch requires that the input port to which the attenuated
+             port is connected will be used as the reference.
+         "
+
+    ::= { polatisVoaConfigEntry 4 }
+
+
+-- ****************************************
+-- Events
+
+polatisVoaPortList OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "A list of ports affected by the event"
+    ::= { polatisVoaEventObjects 1 }
+
+polatisVoaPortLabel OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "Text label for the port affected by the event"
+    ::= { polatisVoaEventObjects 2 }
+
+polatisVoaAttenuationComplete NOTIFICATION-TYPE
+    STATUS obsolete
+    DESCRIPTION 
+        "An attenuation command has completed"
+    ::= { polatisVoaEventsV2 1 }
+
+-- New event version which includes the port number affected
+polatisVoaAttenuationCompleteV2 NOTIFICATION-TYPE
+    OBJECTS { polatisEventSubSwitch,
+              polatisVoaPortList,
+              polatisVoaPortLabel }
+    STATUS current
+    DESCRIPTION 
+        "An attenuation command has completed"
+    ::= { polatisVoaEventsV2 2 }
+
+
+-- ****************************************
+-- Compliance statements
+polatisVoaConfigGroup OBJECT-GROUP
+    OBJECTS     { polatisVoaLevel,
+                  polatisVoaRefport,
+                  polatisVoaCurrentState,
+                  polatisVoaDesiredState }
+    STATUS      current
+    DESCRIPTION "The objects to configure VOAs on the switch"
+    ::= { polatisVoaGroups 1 }
+    
+polatisVoaNotificationsGroup NOTIFICATION-GROUP
+    NOTIFICATIONS { polatisVoaAttenuationComplete }
+    STATUS      obsolete
+    DESCRIPTION
+        "The notifications sent by this MIB."
+    ::= { polatisVoaGroups 2 }
+
+polatisVoaNotificationsGroupV2 NOTIFICATION-GROUP
+    NOTIFICATIONS { polatisVoaAttenuationCompleteV2 }
+    STATUS      current
+    DESCRIPTION
+        "The notifications sent by this MIB."
+    ::= { polatisVoaGroups 3 }
+
+polatisVoaEventGroup OBJECT-GROUP
+    OBJECTS     { polatisVoaPortList,
+                  polatisVoaPortLabel }
+    STATUS      current
+    DESCRIPTION "Objects associated with VOA events"
+    ::= { polatisVoaGroups 4 }
+    
+polatisVoaComplianceV1 MODULE-COMPLIANCE
+    STATUS      deprecated
+    DESCRIPTION "All controllers should provide this level of support"
+    MODULE          -- this module
+    MANDATORY-GROUPS { polatisVoaGroups }
+    ::= { polatisVoaCompls 1 }
+    
+polatisVoaComplianceV2 MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION "All controllers should provide this level of support"
+    MODULE          -- this module
+    MANDATORY-GROUPS { polatisVoaConfigGroup }
+    ::= { polatisVoaCompls 2 }
+    
+polatisVoaComplianceEvtV1 MODULE-COMPLIANCE
+    STATUS      obsolete
+    DESCRIPTION "Implementation incuding notifications"
+    MODULE          -- this module
+    MANDATORY-GROUPS { polatisVoaConfigGroup,
+                       polatisVoaNotificationsGroup }
+    ::= { polatisVoaCompls 3 }
+    
+polatisVoaComplianceEvtV2 MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION "Implementation incuding notifications"
+    MODULE          -- this module
+    MANDATORY-GROUPS { polatisVoaConfigGroup,
+                       polatisVoaNotificationsGroupV2,
+                       polatisVoaEventGroup }
+    ::= { polatisVoaCompls 4 }
+    
+END
+                

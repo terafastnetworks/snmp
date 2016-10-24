@@ -1,0 +1,485 @@
+
+POLATIS-APS-MIB DEFINITIONS ::= BEGIN
+
+    -- ****************************************
+    -- Import definitions
+    IMPORTS
+        MODULE-IDENTITY, OBJECT-TYPE, 
+            NOTIFICATION-TYPE, Unsigned32              FROM SNMPv2-SMI
+        RowStatus, DisplayString                       FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP, 
+            NOTIFICATION-GROUP                         FROM SNMPv2-CONF
+        polatisModules, polatisApsMIB                  FROM POLATIS-GLOBAL-REG
+        polatisOxcPortIndex                            FROM POLATIS-OXC-MIB
+        polatisAlarmId, polatisAlarmStatus, 
+            polatisAlarmUser, polatisEventSubSwitch    FROM POLATIS-EVENT-MIB;
+
+            
+-- ****************************************
+-- Module definition
+polatisApsMibModule MODULE-IDENTITY
+        LAST-UPDATED          "201001060000Z"    -- 06 Jan 2010
+        ORGANIZATION          "Polatis Inc."
+        CONTACT-INFO          
+        "Mail: Polatis Inc.
+               332/2 Cambridge Science Park
+               Milton Road
+               Cambridge
+               CB4 0WN
+        
+        Tel:   +44 (0)1223 424200
+                    
+        Fax:   +44 (0)1223 472015                       
+        
+        Email: support@polatis.com"
+    DESCRIPTION            
+        "This module contain definitions to control Automatic 
+         Protection Switching in a Polatis switch. 
+
+         The table polatisApsPortTable contains the current status
+         and configuration of APS. There is one row for each port in 
+         the switch. 
+
+         The table polatisApsProtGroupTable contains definitions of
+         Facility Protection Groups - i.e. for each working port it
+         defines a list of protecting ports that can be used for
+         protection switching.
+
+         The table polatisApsTriggerTable defines which power monitors
+         will be used to trigger protection switching on each working
+         port.
+
+         If there are no trigger ports defined for a working port then
+         protection switching will occur when there is a power monitor
+         alarm on either the working port or the port to which the
+         working port is connected. Similarly, protection switching
+         will occur on a protecting port when there is a power monitor
+         alarm on the protecting port or the port to which it is
+         connected.
+
+         If a set of trigger ports is defined for a working port then
+         protection switching will occur when there is a power monitor
+         alarm on any of the trigger ports defined, and only on those
+         ports. In particular, protection switching on a port will not
+         occur when there is a power monitor alarm on that same port,
+         unless the port is explicitly included in the list of trigger
+         ports. When trigger ports are defined for a working port, and
+         a protection switch has occured to a protecting port, further
+         protection switches on that protecting port will use the same
+         trigger ports as the working port itself.
+        "
+    
+    REVISION               "201001060000Z"    -- 06 Jan 2010
+    DESCRIPTION            "Rework notifications to include extra 
+                            information. Add notification to be sent
+                            when the status of an APS alarm is updated."
+
+    REVISION               "200910140000Z"    -- 14 Oct 2009
+    DESCRIPTION            "Fixed typos in PolatisApsProtGroupEntry
+                            and polatisApsProtGroupEntry definitions.
+                            Added event objects to conformance
+                            statement. Removed imported objects that
+                            are not used."
+
+    REVISION               "200905280000Z"    -- 28 May 2009
+    DESCRIPTION            "Add APS trigger ports"
+
+    REVISION               "200707040000Z"    -- 04 Jul 2007
+    DESCRIPTION            "Add event definitions"
+
+    REVISION               "200703290000Z"    -- 29 Mar 2007
+    DESCRIPTION            "Initial revision of this module"
+        ::= { polatisModules 6 }
+
+    
+-- ****************************************
+-- Configuration definitions
+polatisApsConf OBJECT IDENTIFIER ::= { polatisApsMIB 1 }
+
+polatisApsGroups OBJECT IDENTIFIER ::= { polatisApsConf 1 }
+
+polatisApsCompls OBJECT IDENTIFIER ::= { polatisApsConf 2 }
+
+
+-- ****************************************
+-- Object definitions
+polatisApsObjs OBJECT IDENTIFIER ::= { polatisApsMIB 2 }
+
+polatisApsPortObjs OBJECT IDENTIFIER ::= { polatisApsObjs 1 }
+
+-- ****************************************
+-- Event definitions
+polatisApsEvents OBJECT IDENTIFIER ::= { polatisApsMIB 3 }
+
+polatisApsEventsV2 OBJECT IDENTIFIER ::= { polatisApsEvents 0 }
+
+polatisApsEventObjects OBJECT IDENTIFIER ::= { polatisApsEvents 1 }
+
+
+-- ****************************************
+-- APS Port Summary Table
+polatisApsPortTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PolatisApsPortEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "The list of APS port configurations in the switch."
+    ::= { polatisApsPortObjs 1 }
+
+polatisApsPortEntry OBJECT-TYPE
+    SYNTAX      PolatisApsPortEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "An entry in the list of APS port configurations in the switch"
+    INDEX   { polatisOxcPortIndex }
+    ::= { polatisApsPortTable 1 }
+
+PolatisApsPortEntry ::= SEQUENCE {
+    polatisApsPortCurrentState INTEGER,
+    polatisApsPortDesiredState INTEGER,
+    polatisApsPortCurrentCond  INTEGER,
+    polatisApsPortDesiredCond  INTEGER }
+
+polatisApsPortCurrentState OBJECT-TYPE
+    SYNTAX      INTEGER{ is        (1),    -- Port is in service
+                         oosma     (2),    -- Working port is out of service,
+                                           -- manual protection switch
+                         oosau     (3) }   -- Working port is out of service, 
+                                           -- automatic protection switch
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "The current state of the port. Only working ports (i.e. not 
+         protecting ports) can have the states 'oosau' or 'oosma'.
+        "
+
+    ::= { polatisApsPortEntry 1 }
+
+polatisApsPortDesiredState OBJECT-TYPE
+    SYNTAX      INTEGER{ is        (1),    -- Port is in service
+                         oos       (2) }   -- Working port is out of service, 
+                                           -- manual protection switch
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+        "The desired state of the port. Setting the desired state of a
+         working port to 'is' will force a reversion back to the
+         working path, unless 'inhswwkg' is set (see
+         polatisApsPortCurrentCond).
+
+         The state can only be set for working and protecting ports. If a
+         port is not part of a protection group then its state cannot be
+         set."
+
+    ::= { polatisApsPortEntry 2 }
+
+polatisApsPortCurrentCond OBJECT-TYPE
+    SYNTAX      INTEGER{ none      (1),   -- switch to wkg/pr both allowed
+                         inhswpr   (2),   -- switch to protection inhibited
+                         inhswwkg  (3) }  -- switch to working inhibited
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "The current inhibitions imposed on the port to control APS. Note 
+         that the state 'none' signifies that both switch-to-working and
+         switch-to-protection are allowed for the port."
+
+    ::= { polatisApsPortEntry 3 }
+
+polatisApsPortDesiredCond OBJECT-TYPE
+    SYNTAX      INTEGER{ none      (1),   -- no conditions applied
+                         inhswpr   (2),   -- switch to protection inhibited
+                         inhswwkg  (3) }  -- switch to working inhibited
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+        "The desired inhibitions imposed on the port to control APS."
+
+    ::= { polatisApsPortEntry 4 }
+
+
+-- ****************************************
+-- APS Protection Group Summary
+polatisApsProtGroupTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PolatisApsProtGroupEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "The list of APS protection groups in the switch"
+    ::= { polatisApsPortObjs 2 }
+
+polatisApsProtGroupEntry OBJECT-TYPE
+    SYNTAX      PolatisApsProtGroupEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "An entry in the list of APS protection groups in the switch"
+    INDEX   { polatisOxcPortIndex, polatisApsProtGroupPort }
+    ::= { polatisApsProtGroupTable 1 }
+
+PolatisApsProtGroupEntry ::= SEQUENCE {
+    polatisApsProtGroupPort     Unsigned32,
+    polatisApsProtGroupPriority Unsigned32,
+    polatisApsProtGroupStatus   RowStatus }
+
+polatisApsProtGroupPort OBJECT-TYPE
+    SYNTAX      Unsigned32(1..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Protecting Port index"
+    ::= { polatisApsProtGroupEntry 1 }
+
+polatisApsProtGroupPriority OBJECT-TYPE
+    SYNTAX      Unsigned32(1..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION         
+        "The priority of the protecting port in a single protection group. 
+         The priority is assigned automatically, in the order in which ports
+         are added to an FFP.
+        "
+    ::= { polatisApsProtGroupEntry 2 }
+
+polatisApsProtGroupStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "The status of this row in the table."
+    ::= { polatisApsProtGroupEntry 3 }
+
+
+-- ****************************************
+-- APS Trigger Ports
+polatisApsTriggerTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PolatisApsTriggerEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "The list of APS trigger ports in the switch"
+    ::= { polatisApsPortObjs 3 }
+
+polatisApsTriggerEntry OBJECT-TYPE
+    SYNTAX      PolatisApsTriggerEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "An entry in the list of APS trigger ports in the switch"
+    INDEX   { polatisOxcPortIndex, polatisOxcPortIndex }
+    ::= { polatisApsTriggerTable 1 }
+
+PolatisApsTriggerEntry ::= SEQUENCE {
+    polatisApsTriggerPort     Unsigned32,
+    polatisApsTriggerStatus   RowStatus }
+
+polatisApsTriggerPort OBJECT-TYPE
+    SYNTAX      Unsigned32(1..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Trigger Port index"
+    ::= { polatisApsTriggerEntry 1 }
+
+polatisApsTriggerStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "The status of this row in the table."
+    ::= { polatisApsTriggerEntry 2 }
+
+
+-- ****************************************
+-- Events
+
+polatisApsProtSwitchType OBJECT-TYPE
+    SYNTAX      INTEGER{ protection  (1),   -- protection switch
+                         reversion   (2),   -- reversion switch
+                         other       (3) }  -- other
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The type of protction switch event. 'protection' indicates a
+         switch from a working port to a protecting port. 'reversion'
+         indicates a switch back to a working port. 'other' indicates 
+         an error condition and should not occur.
+         "
+    ::= { polatisApsEventObjects 1 }
+
+polatisApsConnectedPort OBJECT-TYPE
+    SYNTAX      Unsigned32(0..65535)
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The port connected to the working/protecting port for which the 
+         event has been generated."
+    ::= { polatisApsEventObjects 2 }
+
+polatisApsWorkingPort OBJECT-TYPE
+    SYNTAX      Unsigned32(0..65535)
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The working port for which the event has been generated."
+    ::= { polatisApsEventObjects 3 }
+
+polatisApsProtectingPort OBJECT-TYPE
+    SYNTAX      Unsigned32(0..65535)
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The protecting port for which the event has been generated."
+    ::= { polatisApsEventObjects 4 }
+
+polatisApsConnectedPortLabel OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The label for the port connected to the working/protecting port.
+         (cf. polatisApsConnectedPort)."
+    ::= { polatisApsEventObjects 5 }
+
+polatisApsWorkingPortLabel OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The label for the working port (cf. polatisApsWorkingPort)."
+    ::= { polatisApsEventObjects 6 }
+
+polatisApsProtectingPortLabel OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The label for the protecting port (cf. polatisApsProtectingPort)."
+    ::= { polatisApsEventObjects 7 }
+
+polatisApsProtectionSwitch NOTIFICATION-TYPE
+    OBJECTS { polatisApsProtSwitchType,
+              polatisApsConnectedPort,
+              polatisApsWorkingPort, 
+              polatisApsProtectingPort }
+    STATUS obsolete
+    DESCRIPTION 
+        "A protection switch has occurred"
+    ::= { polatisApsEventsV2 1 }
+
+polatisApsProtectionSwitchV2 NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmStatus,
+              polatisEventSubSwitch,
+              polatisApsProtSwitchType,
+              polatisApsConnectedPort,
+              polatisApsConnectedPortLabel,
+              polatisApsWorkingPort, 
+              polatisApsWorkingPortLabel, 
+              polatisApsProtectingPort,
+              polatisApsProtectingPortLabel }
+    STATUS current
+    DESCRIPTION 
+        "A protection switch has occurred"
+    ::= { polatisApsEventsV2 2 }
+
+polatisApsProtectionSwitchUpdated NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmUser,
+              polatisAlarmStatus }
+    STATUS current
+    DESCRIPTION 
+        "The status of a protection switch alarm has been updated. 
+         The new status is reported in this event."
+    ::= { polatisApsEventsV2 3 }
+
+
+-- ****************************************
+-- Compliance statements
+polatisApsConfigGroup OBJECT-GROUP
+    OBJECTS     { polatisApsPortCurrentState,
+                  polatisApsPortDesiredState,
+                  polatisApsPortCurrentCond,
+                  polatisApsPortDesiredCond,
+                  polatisApsProtGroupPort,
+                  polatisApsProtGroupPriority,
+                  polatisApsProtGroupStatus }
+    STATUS      deprecated
+    DESCRIPTION "The objects to configure APS on the switch"
+    ::= { polatisApsGroups 1 }
+    
+polatisApsNotificationsGroup NOTIFICATION-GROUP
+    NOTIFICATIONS { polatisApsProtectionSwitch }
+    STATUS      obsolete
+    DESCRIPTION
+        "The notifications sent by this MIB."
+    ::= { polatisApsGroups 2 }
+
+polatisApsConfigGroup2 OBJECT-GROUP
+    OBJECTS     { polatisApsPortCurrentState,
+                  polatisApsPortDesiredState,
+                  polatisApsPortCurrentCond,
+                  polatisApsPortDesiredCond,
+                  polatisApsProtGroupPort,
+                  polatisApsProtGroupPriority,
+                  polatisApsProtGroupStatus,
+                  polatisApsTriggerPort,
+                  polatisApsTriggerStatus }
+    STATUS      current
+    DESCRIPTION "The objects to configure APS on the switch"
+    ::= { polatisApsGroups 3 }
+    
+polatisApsEventGroup OBJECT-GROUP
+    OBJECTS     { polatisApsProtSwitchType,
+                  polatisApsConnectedPort,
+                  polatisApsWorkingPort,
+                  polatisApsProtectingPort }
+    STATUS      obsolete
+    DESCRIPTION "Objects associated with APS events"
+    ::= { polatisApsGroups 4 }
+    
+polatisApsEventGroupV2 OBJECT-GROUP
+    OBJECTS     { polatisApsProtSwitchType,
+                  polatisApsConnectedPort,
+                  polatisApsWorkingPort,
+                  polatisApsProtectingPort,
+                  polatisApsConnectedPortLabel,
+                  polatisApsWorkingPortLabel,
+                  polatisApsProtectingPortLabel }
+    STATUS      current
+    DESCRIPTION "Objects associated with APS events"
+    ::= { polatisApsGroups 5 }
+    
+polatisApsNotificationsGroupV2 NOTIFICATION-GROUP
+    NOTIFICATIONS { polatisApsProtectionSwitchV2,
+                    polatisApsProtectionSwitchUpdated }
+    STATUS      current
+    DESCRIPTION
+        "The notifications sent by this MIB."
+    ::= { polatisApsGroups 6 }
+
+polatisApsComplianceV1 MODULE-COMPLIANCE
+    STATUS      deprecated
+    DESCRIPTION "All controllers should provide this level of support"
+    MODULE          -- this module
+    MANDATORY-GROUPS { polatisApsGroups }
+    ::= { polatisApsCompls 1 }
+    
+polatisApsComplianceV2 MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION "All controllers should provide this level of support"
+    MODULE          -- this module
+    MANDATORY-GROUPS { polatisApsConfigGroup2 }
+    ::= { polatisApsCompls 2 }
+    
+polatisApsComplianceEvtV1 MODULE-COMPLIANCE
+    STATUS      obsolete
+    DESCRIPTION "Implementation incuding notifications"
+    MODULE          -- this module
+    MANDATORY-GROUPS { polatisApsConfigGroup2,
+                       polatisApsNotificationsGroup,
+                       polatisApsEventGroup }
+    ::= { polatisApsCompls 3 }
+    
+polatisApsComplianceEvtV2 MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION "Implementation incuding notifications"
+    MODULE          -- this module
+    MANDATORY-GROUPS { polatisApsConfigGroup2,
+                       polatisApsNotificationsGroupV2,
+                       polatisApsEventGroupV2 }
+    ::= { polatisApsCompls 4 }
+    
+END
+                

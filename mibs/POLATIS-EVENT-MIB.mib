@@ -1,0 +1,348 @@
+
+POLATIS-EVENT-MIB DEFINITIONS ::= BEGIN
+
+    -- ****************************************
+    -- Import definitions
+    IMPORTS
+        MODULE-IDENTITY, OBJECT-TYPE, Unsigned32,
+            Integer32, TimeTicks                       FROM SNMPv2-SMI
+        DisplayString                                  FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP                FROM SNMPv2-CONF
+        polatisModules, polatisEventMIB                FROM POLATIS-GLOBAL-REG;
+
+            
+-- ****************************************
+-- Module definition
+polatisEventMibModule MODULE-IDENTITY
+        LAST-UPDATED          "201001060000Z"    -- 06 Jan 2010
+        ORGANIZATION          "Polatis Inc."
+        CONTACT-INFO          
+        "Mail: Polatis Inc.
+               332/2 Cambridge Science Park
+               Milton Road
+               Cambridge
+               CB4 0WN
+        
+        Tel:   +44 (0)1223 424200
+                    
+        Fax:   +44 (0)1223 472015                       
+        
+        Email: support@polatis.com"
+    DESCRIPTION            
+        "This module contain definitions to configure event logging
+         and traps in Polatis products. This event management MIB
+         copies much of its structure from the standard RMON MIB.
+
+         The table polatisEventTable lists event types defined in the 
+         system. The table polatisLogTable lists events that have 
+         occurred in the system.
+         "
+    
+    REVISION               "201001060000Z"    -- 06 Jan 2010
+    DESCRIPTION            "Add objects for use in notifications by
+                            other MIBs."
+
+    REVISION               "200910140000Z"    -- 14 Oct 2009
+    DESCRIPTION            "Removed imported objects that are not
+                            used. Changed SNMPv1 'INTEGER' object type
+                            to SNMPv2 'Integer32' equivalent."
+
+    REVISION               "200703290000Z"    -- 29 Mar 2007
+    DESCRIPTION            "Initial revision of this module"
+        ::= { polatisModules 7 }
+
+    
+-- ****************************************
+-- Configuration definitions
+polatisEventConf OBJECT IDENTIFIER ::= { polatisEventMIB 1 }
+
+polatisEventGroups OBJECT IDENTIFIER ::= { polatisEventConf 1 }
+
+polatisEventCompls OBJECT IDENTIFIER ::= { polatisEventConf 2 }
+
+
+-- ****************************************
+-- Object definitions
+polatisEventObjs OBJECT IDENTIFIER ::= { polatisEventMIB 2 }
+
+polatisEventCtrlObjs OBJECT IDENTIFIER ::= { polatisEventObjs 1 }
+
+polatisEventLogObjs OBJECT IDENTIFIER ::= { polatisEventObjs 2 }
+
+polatisEventTrapObjs OBJECT IDENTIFIER ::= { polatisEventObjs 3 }
+
+-- ****************************************
+-- No event definitions
+
+
+-- ****************************************
+-- The Event Group
+
+-- This is copied from the RMON MIB with some minor changes
+
+polatisEventTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PolatisEventEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+	"A list of events to be generated."
+    ::= { polatisEventCtrlObjs 1 }
+
+polatisEventEntry OBJECT-TYPE
+    SYNTAX      PolatisEventEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+	"A set of parameters that describe an event to be
+	generated when certain conditions are met.  As an
+	example, an instance of the eventLastTimeSent object
+	might be named eventLastTimeSent.6"
+    INDEX       { polatisEventIndex }
+    ::= { polatisEventTable 1 }
+
+PolatisEventEntry ::= SEQUENCE {
+    polatisEventIndex          INTEGER,
+    polatisEventDescription    DisplayString,
+    polatisEventType           INTEGER,
+    polatisEventCommunity      OCTET STRING,
+    polatisEventLastTimeSent   TimeTicks
+}
+
+polatisEventIndex OBJECT-TYPE
+    SYNTAX      Integer32 (1..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+	"An index that uniquely identifies an entry in the
+	event table.  Each such entry defines one event that
+	is to be generated when the appropriate conditions
+	occur."
+    ::= { polatisEventEntry 1 }
+
+polatisEventDescription OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE (0..127))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+	"A comment describing this event entry."
+    ::= { polatisEventEntry 2 }
+
+polatisEventType OBJECT-TYPE
+    SYNTAX      INTEGER {
+                         none(1),
+                         log(2),
+                         snmp-trap(3),      -- NOT SUPPORTED
+                         log-and-trap(4) }  -- NOT SUPPORTED
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+	"The type of notification that the probe will make
+	about this event.  In the case of log, an entry is
+	made in the log table for each event.  In the case of
+	snmp-trap, an SNMP trap is sent to one or more
+	management stations."
+    ::= { polatisEventEntry 3 }
+
+polatisEventCommunity OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE (0..127))
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+	"If an SNMP trap is to be sent, it will be sent to
+	the SNMP community specified by this octet string."
+    ::= { polatisEventEntry 4 }
+
+polatisEventLastTimeSent OBJECT-TYPE
+    SYNTAX      TimeTicks
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+	"The value of sysUpTime at the time this event
+	entry last generated an event.  If this entry has
+	not generated any events, this value will be
+	zero."
+    ::= { polatisEventEntry 5 }
+
+
+-- ****************************************
+-- The Log table group
+
+-- This is copied from the RMON MIB
+
+polatisLogTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PolatisLogEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+	"A list of events that have been logged."
+    ::= { polatisEventLogObjs 1 }
+
+polatisLogEntry OBJECT-TYPE
+    SYNTAX      PolatisLogEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+	"A set of data describing an event that has been
+	logged.  For example, an instance of the
+	logDescription object might be named
+	logDescription.6.47"
+    INDEX { polatisLogEventIndex, polatisLogIndex }
+    ::= { polatisLogTable 1 }
+
+PolatisLogEntry ::= SEQUENCE {
+    polatisLogEventIndex           INTEGER,
+    polatisLogIndex                INTEGER,
+    polatisLogTime                 TimeTicks,
+    polatisLogDescription          DisplayString
+}
+
+polatisLogEventIndex OBJECT-TYPE
+    SYNTAX      Integer32 (1..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+	"The event entry that generated this log
+	entry.  The log identified by a particular
+	value of this index is associated with the same
+	eventEntry as identified by the same value
+	of eventIndex."
+    ::= { polatisLogEntry 1 }
+
+polatisLogIndex OBJECT-TYPE
+    SYNTAX      Integer32 (1..2147483647)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+	"An index that uniquely identifies an entry
+	in the log table amongst those generated by the
+	same eventEntries.  These indexes are
+	assigned beginning with 1 and increase by one
+	with each new log entry.  The association
+	between values of logIndex and logEntries
+	is fixed for the lifetime of each logEntry.
+	The agent may choose to delete the oldest
+	instances of logEntry as required because of
+	lack of memory.  It is an implementation-specific
+	matter as to when this deletion may occur."
+    ::= { polatisLogEntry 2 }
+
+polatisLogTime OBJECT-TYPE
+    SYNTAX      TimeTicks
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+	"The value of sysUpTime when this log entry was
+	created."
+    ::= { polatisLogEntry 3 }
+
+polatisLogDescription OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE (0..255))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+	"An implementation dependent description of the
+	event that activated this log entry."
+    ::= { polatisLogEntry 4 }
+
+
+-- ****************************************
+-- Event objects used by traps/informs defined in other MIBs
+
+polatisEventMsg OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "A message providing further information about an event."
+    ::= { polatisEventTrapObjs 1 }
+
+polatisAlarmId OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The ID of an alarm."
+    ::= { polatisEventTrapObjs 2 }
+
+polatisAlarmStatus OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The status of an alarm."
+    ::= { polatisEventTrapObjs 3 }
+
+polatisAlarmUser OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The user who updated the status of the alarm."
+    ::= { polatisEventTrapObjs 4 }
+
+polatisEventSubSwitch OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The Sub-Switch for which the event was generated."
+    ::= { polatisEventTrapObjs 5 }
+
+-- ****************************************
+-- Compliance statements
+polatisCtrlTableGroup OBJECT-GROUP
+    OBJECTS     { polatisEventIndex,
+                  polatisEventDescription,
+                  polatisEventType,
+                  polatisEventCommunity,
+                  polatisEventLastTimeSent }
+    STATUS      current
+    DESCRIPTION "Objects to control event handling"
+    ::= { polatisEventGroups 1 }
+    
+polatisEventLogGroup OBJECT-GROUP
+    OBJECTS     { polatisLogEventIndex,
+                  polatisLogIndex,
+                  polatisLogTime, 
+                  polatisLogDescription }
+    STATUS      current
+    DESCRIPTION "Objects to report logs"
+    ::= { polatisEventGroups 2 }
+    
+polatisEventTrapGroup OBJECT-GROUP
+    OBJECTS     { polatisEventMsg,
+                  polatisAlarmId,
+                  polatisAlarmStatus,
+                  polatisAlarmUser,
+                  polatisEventSubSwitch }
+    STATUS      current
+    DESCRIPTION "Objects used in notifications by other MIBs"
+    ::= { polatisEventGroups 3 }
+    
+polatisEventComplianceV1 MODULE-COMPLIANCE
+    STATUS      obsolete
+    DESCRIPTION "All controllers should provide this level of support"
+    MODULE          -- this module
+    MANDATORY-GROUPS { polatisEventGroups }
+    ::= { polatisEventCompls 1 }
+    
+polatisEventComplianceV2 MODULE-COMPLIANCE
+    STATUS      obsolete
+    DESCRIPTION "All controllers should provide this level of support"
+    MODULE          -- this module
+    MANDATORY-GROUPS { polatisCtrlTableGroup,
+                       polatisEventLogGroup }
+    ::= { polatisEventCompls 2 }
+    
+polatisEventComplianceV3 MODULE-COMPLIANCE
+    STATUS      obsolete
+    DESCRIPTION "All controllers should provide this level of support"
+    MODULE          -- this module
+    MANDATORY-GROUPS { polatisCtrlTableGroup,
+                       polatisEventLogGroup,
+                       polatisEventTrapGroup }
+    ::= { polatisEventCompls 3 }
+    
+
+END
+                

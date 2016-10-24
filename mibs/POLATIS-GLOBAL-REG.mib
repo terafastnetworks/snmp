@@ -1,0 +1,118 @@
+
+POLATIS-GLOBAL-REG DEFINITIONS ::= BEGIN
+
+-- ****************************************
+-- Import definitions
+IMPORTS
+	MODULE-IDENTITY, OBJECT-IDENTITY, enterprises	FROM SNMPv2-SMI;
+	
+-- ****************************************
+-- Module definition
+polatisGlobalRegModule MODULE-IDENTITY
+	LAST-UPDATED          "200703290000Z"    -- 29 Mar 2007
+	ORGANIZATION          "Polatis Inc."
+	CONTACT-INFO          
+        "Mail: Polatis Inc.
+               332/2 Cambridge Science Park
+               Milton Road
+               Cambridge
+               CB4 0WN
+        
+        Tel:   +44 (0)1223 424200
+                    
+        Fax:   +44 (0)1223 472015                       
+        
+        Email: support@polatis.com"
+	DESCRIPTION            
+		"This module contain Polatis global definitions"
+		 
+	REVISION               "200703290000Z"    -- 29 Mar 2007
+	DESCRIPTION            "Initial revision of this module"
+	::= { polatisModules 1 }
+
+	
+-- ****************************************
+-- OID registrations
+polatis OBJECT-IDENTITY
+	STATUS		current
+	DESCRIPTION     
+            "The root of the OID tree assigned to Polatis Inc. by IANA"
+	::= { enterprises 26592 }
+	
+polatisReg OBJECT-IDENTITY
+	STATUS		current
+	DESCRIPTION     "Sub-tree for registrations"
+	::= { polatis 1 }
+	
+	polatisModules OBJECT-IDENTITY
+		STATUS		current
+		DESCRIPTION     "Sub-tree for modules"
+		::= { polatisReg 1 }
+	
+	polatisInstrumentationProducts OBJECT-IDENTITY
+		STATUS		current
+		DESCRIPTION     "Instrumentation products"
+		::= { polatisReg 2 }
+	
+	polatisVideoProducts OBJECT-IDENTITY
+		STATUS		current
+		DESCRIPTION     "Video products"
+		::= { polatisReg 3 }
+	
+polatisGeneric OBJECT-IDENTITY
+	STATUS		current
+	DESCRIPTION     "Sub-tree for generic objects and events"
+	::= { polatis 2 }
+	
+	polatisSysMIB OBJECT-IDENTITY
+		STATUS		current
+		DESCRIPTION     "Sub-tree for common system-wide objects and events"
+		::= { polatisGeneric 1 }
+	
+	polatisOxcMIB OBJECT-IDENTITY
+		STATUS		current
+		DESCRIPTION     "Sub-tree for common OXC objects and events"
+		::= { polatisGeneric 2 }
+	
+	polatisOpmMIB OBJECT-IDENTITY
+		STATUS		current
+		DESCRIPTION     "Sub-tree for common OPM objects and events"
+		::= { polatisGeneric 3 }
+	
+	polatisVoaMIB OBJECT-IDENTITY
+		STATUS		current
+		DESCRIPTION     "Sub-tree for common VOA objects and events"
+		::= { polatisGeneric 4 }
+	
+	polatisApsMIB OBJECT-IDENTITY
+		STATUS		current
+		DESCRIPTION     "Sub-tree for common APS objects and events"
+		::= { polatisGeneric 5 }
+	
+	polatisEventMIB OBJECT-IDENTITY
+		STATUS		current
+		DESCRIPTION     "Sub-tree for event-handling configuration"
+		::= { polatisGeneric 6 }
+	
+polatisProducts OBJECT-IDENTITY
+	STATUS		current
+	DESCRIPTION     "Sub-tree for product-specific objects and events"
+	::= { polatis 3 }
+	
+polatisCaps OBJECT-IDENTITY
+	STATUS		current
+	DESCRIPTION     "Sub-tree for agent profiles"
+	::= { polatis 4 }
+	
+polatisReqs OBJECT-IDENTITY
+	STATUS		current
+	DESCRIPTION     "Sub-tree for management application requirements"
+	::= { polatis 5 }
+	
+polatisExpr OBJECT-IDENTITY
+	STATUS		current
+	DESCRIPTION     "Sub-tree for experimental definitions"
+	::= { polatis 6 }
+		
+END
+	

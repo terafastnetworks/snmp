@@ -1,0 +1,98 @@
+
+POLATIS-INSTR-PROD-REG DEFINITIONS ::= BEGIN
+
+    -- ****************************************
+    -- Import definitions
+    IMPORTS
+        MODULE-IDENTITY                                FROM SNMPv2-SMI
+        polatisModules, polatisInstrumentationProducts FROM POLATIS-GLOBAL-REG;
+
+            
+-- ****************************************
+-- Module definition
+polatisInstrProdModule MODULE-IDENTITY
+        LAST-UPDATED          "200910140000Z"    -- 14 Oct 2009
+        ORGANIZATION          "Polatis Inc."
+        CONTACT-INFO          
+        "Mail: Polatis Inc.
+               332/2 Cambridge Science Park
+               Milton Road
+               Cambridge
+               CB4 0WN
+        
+        Tel:   +44 (0)1223 424200
+                    
+        Fax:   +44 (0)1223 472015                       
+        
+        Email: support@polatis.com"
+    DESCRIPTION            
+        "This module contain registrations for Polatis 
+         instrumentation products"
+    
+    REVISION               "200910140000Z"    -- 14 Oct 2009
+    DESCRIPTION            "Removed imported objects that
+                            are not used. Fix error in definition
+                            of polatisInstrVstApsNone"
+
+    REVISION               "200703290000Z"    -- 29 Mar 2007
+    DESCRIPTION            "Initial revision of this module"
+        ::= { polatisModules 1000 }
+
+    
+-- ****************************************
+-- OID registrations
+
+-- These define different network management subsystems, i.e. 
+-- not individual products as such. Each of the following support a 
+-- different subset of the SNMP object tree.
+
+-- OST products
+polatisInstrOst OBJECT IDENTIFIER 
+        ::= { polatisInstrumentationProducts 1 }
+
+    -- Standard OST, no APS
+    polatisInstrOstStd OBJECT IDENTIFIER 
+             ::= { polatisInstrOst 1 }
+
+    -- OST with APS
+    polatisInstrOstAps OBJECT IDENTIFIER 
+             ::= { polatisInstrOst 2 }
+
+-- VST products
+polatisInstrVst OBJECT IDENTIFIER 
+        ::= { polatisInstrumentationProducts 2 }
+
+    -- Standard VST products
+    polatisInstrVstStd OBJECT IDENTIFIER 
+             ::= { polatisInstrVst 1 }
+
+        -- VST products, no VOA
+        polatisInstrVstStdNone OBJECT IDENTIFIER 
+             ::= { polatisInstrVstStd 1 }
+
+        -- VST products, absolute VOA
+        polatisInstrVstStdAbs OBJECT IDENTIFIER 
+             ::= { polatisInstrVstStd 2 }
+
+        -- VST products, relative VOA
+        polatisInstrVstStdRel OBJECT IDENTIFIER
+             ::= { polatisInstrVstStd 3 }
+
+    -- VST products with APS
+    polatisInstrVstAps OBJECT IDENTIFIER 
+             ::= { polatisInstrVst 2 }
+
+        -- VST products, no VOA
+        polatisInstrVstApsNone OBJECT IDENTIFIER 
+             ::= { polatisInstrVstAps 1 }
+
+        -- VST products, absolute VOA
+        polatisInstrVstApsAbs OBJECT IDENTIFIER 
+             ::= { polatisInstrVstAps 2 }
+
+        -- VST products, relative VOA
+        polatisInstrVstApsRel OBJECT IDENTIFIER
+             ::= { polatisInstrVstAps 3 }
+
+END
+                

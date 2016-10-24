@@ -1,0 +1,51 @@
+{
+
+
+    'destinationHost' : '10.99.99.225',
+    'version'         : 1,
+    'community'       : 'private',
+    'community_ro'       : 'public',
+    'community_rw'       : 'private',
+    'security_user'   : 'privroot',
+    'security_level'  : 'authPriv',
+    'auth_protocol'   : 'SHA',
+    'auth_key'        : 'privrootpass',
+    'priv_protocol'   : 'AES',
+    'priv_key'        : 'privrootpass',
+    'polatisProductCode'     : 'N-OST-48x48-HA1-DMHEV-050',
+    'polatisSerialNumber'    : '1533',
+    'polatisFirmwareVersion' : '6.5.1.7',
+    'polatisNetConfigIpAddress.1': '10.99.99.225',
+    'polatisNetConfigGateway.1'  : '10.99.99.254',
+    'polatisNetConfigSubnet.1'   : '255.0.0.0',
+    'polatisNetConfigBroadcast.1': '10.255.255.255',
+    'polatisNetConfigIpAddress.2': '172.16.0.101',
+    'polatisNetConfigGateway.2'  : '0.0.0.0',
+    'polatisNetConfigSubnet.2'   : '255.255.255.0',
+    'polatisNetConfigBroadcast.2': '172.16.0.255',
+    'polatisNetConfigAutoAddr.1' : '1',  #True = 1, False = 0
+    'polatisNetConfigAutoAddr.2' : '1',  #True = 1, False = 0
+    'polatisOxcSize' : '48x48',
+    'vacmGroupName.1.6.112.117.98.108.105.99'  : 'read-only',
+    'vacmGroupName.1.7.112.114.105.118.97.116.101'  : 'all-rights',
+    'vacmGroupName.2.6.112.117.98.108.105.99'  : 'read-only',
+    'vacmGroupName.2.7.112.114.105.118.97.116.101'  : 'all-rights',
+    'vacmGroupName.3.4.114.111.111.116'  : 'all-rights',
+    'vacmGroupName.3.8.112.114.105.118.114.111.111.116'  : 'all-rights',
+
+    'vacmSecurityToGroupStorageType.1.6.112.117.98.108.105.99'  : '3',
+    'vacmSecurityToGroupStorageType.1.7.112.114.105.118.97.116.101'  : '3',
+    'vacmSecurityToGroupStorageType.2.6.112.117.98.108.105.99'  : '3',
+    'vacmSecurityToGroupStorageType.2.7.112.114.105.118.97.116.101'  : '3',
+    'vacmSecurityToGroupStorageType.3.4.114.111.111.116'  : '3',
+    'vacmSecurityToGroupStorageType.3.8.112.114.105.118.114.111.111.116'  : '3',
+
+    'vacmSecurityToGroupStatus.1.6.112.117.98.108.105.99'  : '1',
+    'vacmSecurityToGroupStatus.1.7.112.114.105.118.97.116.101'  : '1',
+    'vacmSecurityToGroupStatus.2.6.112.117.98.108.105.99'  : '1',
+    'vacmSecurityToGroupStatus.2.7.112.114.105.118.97.116.101'  : '1',
+    'vacmSecurityToGroupStatus.3.4.114.111.111.116'  : '1',
+    'vacmSecurityToGroupStatus.3.8.112.114.105.118.114.111.111.116'  : '1'
+
+
+}

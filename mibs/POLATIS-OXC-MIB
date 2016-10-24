@@ -1,0 +1,513 @@
+
+POLATIS-OXC-MIB DEFINITIONS ::= BEGIN
+
+    -- ****************************************
+    -- Import definitions
+    IMPORTS
+        MODULE-IDENTITY, OBJECT-TYPE, 
+            NOTIFICATION-TYPE, Unsigned32              FROM SNMPv2-SMI
+        DisplayString, TruthValue                      FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP, 
+            NOTIFICATION-GROUP                         FROM SNMPv2-CONF
+        polatisModules, polatisOxcMIB                  FROM POLATIS-GLOBAL-REG
+        polatisEventMsg, polatisAlarmId, polatisAlarmStatus, 
+            polatisAlarmUser, polatisEventSubSwitch    FROM POLATIS-EVENT-MIB;
+
+            
+-- ****************************************
+-- Module definition
+polatisOxcMibModule MODULE-IDENTITY
+        LAST-UPDATED          "201001060000Z"    -- 06 Jan 2010
+        ORGANIZATION          "Polatis Inc."
+        CONTACT-INFO          
+        "Mail: Polatis Inc.
+               332/2 Cambridge Science Park
+               Milton Road
+               Cambridge
+               CB4 0WN
+        
+        Tel:   +44 (0)1223 424200
+                    
+        Fax:   +44 (0)1223 472015                       
+        
+        Email: support@polatis.com"
+    DESCRIPTION            
+        "This module contains definitions to control the optical 
+         cross-connects in a Polatis switch. 
+
+         The read-only object polatisOxcSize specifies the size of the 
+         switch matrix. 
+
+         The table polatisOxcPortTable contains one row for each port
+         present in the switch, indicating how the port is cross-connected 
+         in the switch matrix and whether it is enabled or disabled.
+
+         This table interacts with the Automatic Protection Switching
+         (APS) subsystem (see POLATIS-APS-MIB), so configuring
+         cross-connects using this MIB is affected by the state of
+         protection switching in the switch. (The behaviour of the
+         switch in these circumstances is defined in POLATIS-APS-MIB).
+         The object polatisOxcForceUpdates is used to force an update
+         to a cross connect in the case that there is a clash with the
+         APS subsystem."
+
+    REVISION               "201001060000Z"    -- 06 Jan 2010
+    DESCRIPTION            "Rework notifications to include extra 
+                            information. Add notifications to be sent
+                            when the status of an alarm is updated."
+
+    REVISION               "200910140000Z"    -- 14 Oct 2009
+    DESCRIPTION            "Added event objects to conformance
+                            statement. Removed imported objects that
+                            are not used."
+
+    REVISION               "200707040000Z"    -- 04 Jul 2007
+    DESCRIPTION            "Add event definitions"
+
+    REVISION               "200703290000Z"    -- 29 Mar 2007
+    DESCRIPTION            "Initial revision of this module"
+        ::= { polatisModules 3 }
+
+    
+-- ****************************************
+-- Configuration definitions
+polatisOxcConf OBJECT IDENTIFIER ::= { polatisOxcMIB 1 }
+
+polatisOxcGroups OBJECT IDENTIFIER ::= { polatisOxcConf 1 }
+
+polatisOxcCompls OBJECT IDENTIFIER ::= { polatisOxcConf 2 }
+
+
+-- ****************************************
+-- Object definitions
+polatisOxcObjs OBJECT IDENTIFIER ::= { polatisOxcMIB 2 }
+
+polatisOxcPortObjs OBJECT IDENTIFIER ::= { polatisOxcObjs 1 }
+
+
+-- ****************************************
+-- Event definitions
+polatisOxcEvents OBJECT IDENTIFIER ::= { polatisOxcMIB 3 }
+
+polatisOxcEventsV2 OBJECT IDENTIFIER ::= { polatisOxcEvents 0 }
+
+polatisOxcEventObjects OBJECT IDENTIFIER ::= { polatisOxcEvents 1 }
+
+-- ****************************************
+-- OXC Managed Objects
+polatisOxcSize OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Reports the size of the switch matrix.
+
+         This object specifies the size of the switch matrix in the
+         form of a string 'NxM'. For non-reconfigurable switches N is
+         the number of ingress ports and M is the number of egress
+         ports - e.g. '16x16' for a 16x16 switch. For reconfigurable
+         switches N is the total number of ports in the switch matrix
+         and M is 'CC' - e.g. '32xCC' for a 16x16 reconfigurable switch."
+
+    ::= { polatisOxcPortObjs 1 }
+
+
+polatisOxcPortTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PolatisOxcPortEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION 
+        "The list of optical ports in the switch. There is one
+         row for each port in the switch matrix.
+
+         Note that each SNMP GET or SET request to this table results
+         in a query to the underlying optical module to read its
+         state. If multiple objects need to be accessed then it is
+         more efficient to group them into a single SNMP message since
+         the agent will then make just one query to the optical
+         module. 
+        "
+    ::= { polatisOxcPortObjs 2 }
+
+
+polatisOxcPortEntry OBJECT-TYPE
+    SYNTAX      PolatisOxcPortEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "An entry in the list of optical ports in the switch"
+    INDEX   { polatisOxcPortIndex }
+    ::= { polatisOxcPortTable 1 }
+
+PolatisOxcPortEntry ::= SEQUENCE {
+    polatisOxcPortIndex    Unsigned32,
+    polatisOxcPortPatch    Unsigned32,
+    polatisOxcPortCurrentState  INTEGER, 
+    polatisOxcPortDesiredState  INTEGER }
+
+polatisOxcPortIndex OBJECT-TYPE
+    SYNTAX      Unsigned32(1..65535)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION 
+        "The port index. This index is used throughout the Polatis MIBs
+         to identify ports in the switch."
+    ::= { polatisOxcPortEntry 1 }
+
+polatisOxcPortPatch OBJECT-TYPE
+    SYNTAX   Unsigned32(0..65535)
+    MAX-ACCESS  read-write
+    STATUS   current
+    DESCRIPTION  
+        "The port to which this row's port is cross-connected in the
+         switch matrix. A value of zero indicates that there is no
+         cross-connect in place.
+
+         A new cross-connect is made by writing a port index to this
+         object. This will connect the port identified by this row in
+         the table to the port specified as the value of this
+         object. If either of these ports are already in use in a
+         cross-connect then the old cross-connect(s) will be torn down
+         and replaced by the new one.
+
+         A cross-connect is deleted by writing the value zero to this
+         object.
+
+         If there is a clash with the Automatic Protection Switching 
+         subsystem then the cross-connect will fail to be completed
+         unless the object polatisOxcForceUpdates is used to force the 
+         update to be made.
+        "
+    ::= { polatisOxcPortEntry 2 }
+
+polatisOxcPortCurrentState OBJECT-TYPE
+    SYNTAX      INTEGER { enabled  (1),     -- port is enabled
+                          disabled (2),     -- port is disabled
+                          failed   (3) }    -- port has failed
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Reports the current state of the port. 
+        
+         Each port in the switch can be enabled or disabled by means
+         of a 'virtual shutter'.  This feature is analogous to a
+         physical shutter in front of each port that can be opened or
+         closed.  When a port is disabled (i.e. when the virtual
+         shutter is closed) the port can be used in connections as
+         normal, but no light passes.
+
+         When the state reported by this object is 'enabled' the
+         virtual shutter is open and light will pass. Whent he state
+         is reported as 'disabled' the virtual shutter is closed and
+         light is blocked. If the state is 'failed' then there is a
+         fault with the switch.
+        "
+    ::= { polatisOxcPortEntry 3 }
+
+polatisOxcPortDesiredState OBJECT-TYPE
+    SYNTAX      INTEGER { enable (1),       -- enable port
+                          disable (2) }     -- disable port
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+        "This object sets the desired state of the port - i.e. opens
+         or closes the virtual shutter in front of each port (see
+         polatisOxcPortCurrentState). Writing the value 'enable' opens
+         the virtual shutter and allows light to pass. Writing the
+         value 'disable' closes the virtual shutter and blocks light.
+        "
+    ::= { polatisOxcPortEntry 4 }
+
+
+polatisOxcForceUpdates OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+        "When set to true, updates to optical patches are forced
+         through, even if that clashes with the configuration of
+         the Automatic Protection Switching subsystem.
+
+         This object is automatically set to 'false' after each
+         update to cross-connects in the switch matrix, so that it
+         only applies to a single update.
+        "
+    ::= { polatisOxcPortObjs 3 }
+
+
+-- ****************************************
+-- Events
+
+polatisOxcEventMsg OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  accessible-for-notify
+    STATUS      obsolete
+    DESCRIPTION
+        "A message providing further information about the event."
+    ::= { polatisOxcEventObjects 1 }
+
+polatisOxcEventPortState OBJECT-TYPE
+    SYNTAX      INTEGER { enabled  (1),     -- port is enabled
+                          disabled (2) }    -- port has failed
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION 
+        "The current state of the port."
+    ::= { polatisOxcEventObjects 2 }
+
+polatisOxcIngressPortList OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The ingress ports affected by the event"
+    ::= { polatisOxcEventObjects 3 }
+
+polatisOxcIngressPortLabel OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "Text label for the ingress port"
+    ::= { polatisOxcEventObjects 4 }
+
+polatisOxcEgressPortList OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The ingress ports affected by the event"
+    ::= { polatisOxcEventObjects 5 }
+
+polatisOxcEgressPortLabel OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "Text label for the egress port"
+    ::= { polatisOxcEventObjects 6 }
+
+polatisOxcPortList OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "A list of ports affected by the event"
+    ::= { polatisOxcEventObjects 7 }
+
+polatisOxcPortLabel OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "Text label for the port affected by the event"
+    ::= { polatisOxcEventObjects 8 }
+
+polatisOxcSwitchComplete NOTIFICATION-TYPE
+    STATUS obsolete
+    DESCRIPTION 
+        "A switch command has completed"
+    ::= { polatisOxcEventsV2 1 }
+
+polatisOxcPortEnable NOTIFICATION-TYPE
+    STATUS obsolete
+    DESCRIPTION 
+        "A port has been enabled or disabled"
+    ::= { polatisOxcEventsV2 2 }
+
+polatisOxcTempRange NOTIFICATION-TYPE
+    OBJECTS { polatisOxcEventMsg }
+    STATUS obsolete
+    DESCRIPTION 
+        "The switch has exceeded its operating temperature range."
+    ::= { polatisOxcEventsV2 3 }
+
+polatisOxcError NOTIFICATION-TYPE
+    OBJECTS { polatisOxcEventMsg }
+    STATUS obsolete
+    DESCRIPTION 
+        "An OXC error has occurred"
+    ::= { polatisOxcEventsV2 4 }
+
+polatisOxcPortError NOTIFICATION-TYPE
+    OBJECTS { polatisOxcEventMsg }
+    STATUS obsolete
+    DESCRIPTION 
+        "A OXC port error has occurred"
+    ::= { polatisOxcEventsV2 5 }
+
+polatisOxcCompensationResumed NOTIFICATION-TYPE
+    STATUS current
+    DESCRIPTION 
+        "OXC compensation has resumed"
+    ::= { polatisOxcEventsV2 6 }
+
+polatisOxcSwitchCompleteV2 NOTIFICATION-TYPE
+    OBJECTS { polatisEventSubSwitch,
+              polatisOxcIngressPortList,
+              polatisOxcIngressPortLabel,
+              polatisOxcEgressPortList,
+              polatisOxcEgressPortLabel }
+    STATUS current
+    DESCRIPTION 
+        "A switch command has completed"
+    ::= { polatisOxcEventsV2 7 }
+
+polatisOxcPortEnableV2 NOTIFICATION-TYPE
+    OBJECTS { polatisEventSubSwitch,
+              polatisOxcPortList, 
+              polatisOxcPortLabel,
+              polatisOxcEventPortState }
+    STATUS current
+    DESCRIPTION 
+        "A port has been enabled or disabled"
+    ::= { polatisOxcEventsV2 8 }
+
+polatisOxcTempRangeV2 NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmStatus,
+              polatisEventMsg }
+    STATUS current
+    DESCRIPTION 
+        "The switch has exceeded its operating temperature range."
+    ::= { polatisOxcEventsV2 9 }
+
+polatisOxcTempRangeUpdated NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmUser,
+              polatisAlarmStatus }
+    STATUS current
+    DESCRIPTION 
+        "The status of a temperature range alarm has been updated. 
+         The new status is reported in this event."
+    ::= { polatisOxcEventsV2 10 }
+
+polatisOxcErrorV2 NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmStatus,
+              polatisEventMsg }
+    STATUS current
+    DESCRIPTION 
+        "An OXC error has occurred"
+    ::= { polatisOxcEventsV2 11 }
+
+polatisOxcErrorUpdated NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmUser,
+              polatisAlarmStatus }
+    STATUS current
+    DESCRIPTION 
+        "The status of an OXC alarm has been updated. 
+         The new status is reported in this event."
+    ::= { polatisOxcEventsV2 12 }
+
+polatisOxcPortErrorV2 NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmStatus,
+              polatisEventMsg }
+    STATUS current
+    DESCRIPTION 
+        "A OXC port error has occurred"
+    ::= { polatisOxcEventsV2 13 }
+
+polatisOxcPortErrorUpdated NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmUser,
+              polatisAlarmStatus }
+    STATUS current
+    DESCRIPTION 
+        "The status of an OXC port alarm has been updated. 
+         The new status is reported in this event."
+    ::= { polatisOxcEventsV2 14 }
+
+
+-- ****************************************
+-- Compliance statements
+polatisOxcPortsGroup OBJECT-GROUP
+    OBJECTS     { polatisOxcSize,
+                  polatisOxcPortPatch,
+                  polatisOxcPortCurrentState,
+                  polatisOxcPortDesiredState,
+                  polatisOxcForceUpdates }
+    STATUS      current
+    DESCRIPTION "The objects to control OXC ports on the switch"
+    ::= { polatisOxcGroups 1 }
+    
+polatisOxcNotificationsGroup NOTIFICATION-GROUP
+    NOTIFICATIONS { polatisOxcSwitchComplete,
+                    polatisOxcPortEnable,
+                    polatisOxcTempRange,
+                    polatisOxcError,
+                    polatisOxcPortError,
+                    polatisOxcCompensationResumed }
+    STATUS      obsolete
+    DESCRIPTION
+        "The notifications sent by this MIB."
+    ::= { polatisOxcGroups 2 }
+
+polatisOxcEventGroup OBJECT-GROUP
+    OBJECTS     { polatisOxcEventMsg }
+    STATUS      obsolete
+    DESCRIPTION "Objects associated with OXC events"
+    ::= { polatisOxcGroups 3 }
+    
+polatisOxcEventGroupV2 OBJECT-GROUP
+    OBJECTS     { polatisOxcEventPortState,
+                  polatisOxcIngressPortList,
+                  polatisOxcIngressPortLabel, 
+                  polatisOxcEgressPortList,
+                  polatisOxcEgressPortLabel,
+                  polatisOxcPortList,
+                  polatisOxcPortLabel }
+    STATUS      current
+    DESCRIPTION "Objects associated with OXC events"
+    ::= { polatisOxcGroups 4 }
+    
+polatisOxcNotificationsGroupV2 NOTIFICATION-GROUP
+    NOTIFICATIONS { polatisOxcSwitchCompleteV2,
+                    polatisOxcPortEnableV2,
+                    polatisOxcTempRangeV2,
+                    polatisOxcErrorV2,
+                    polatisOxcPortErrorV2,
+                    polatisOxcCompensationResumed,
+                    polatisOxcTempRangeUpdated,
+                    polatisOxcErrorUpdated,
+                    polatisOxcPortErrorUpdated }
+    STATUS      current
+    DESCRIPTION
+        "The notifications sent by this MIB."
+    ::= { polatisOxcGroups 5 }
+
+polatisOxcPortsComplianceV1 MODULE-COMPLIANCE
+    STATUS      obsolete
+    DESCRIPTION "All controllers should provide this level of support"
+    MODULE          -- this module
+         MANDATORY-GROUPS { polatisOxcGroups }
+    ::= { polatisOxcCompls 1 }
+    
+polatisOxcPortsComplianceV2 MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION "All controllers should provide this level of support"
+    MODULE          -- this module
+         MANDATORY-GROUPS { polatisOxcPortsGroup }
+    ::= { polatisOxcCompls 2 }
+    
+polatisOxcPortsComplianceEvtV1 MODULE-COMPLIANCE
+    STATUS      obsolete
+    DESCRIPTION "Implementation incuding notifications"
+    MODULE          -- this module
+         MANDATORY-GROUPS { polatisOxcPortsGroup,
+                            polatisOxcNotificationsGroup,
+                            polatisOxcEventGroup }
+    ::= { polatisOxcCompls 3 }
+
+polatisOxcPortsComplianceEvtV2 MODULE-COMPLIANCE
+    STATUS      obsolete
+    DESCRIPTION "Implementation including notifications"
+    MODULE          -- this module
+         MANDATORY-GROUPS { polatisOxcPortsGroup,
+                            polatisOxcNotificationsGroupV2,
+                            polatisOxcEventGroupV2 }
+    ::= { polatisOxcCompls 4 }
+
+END
+                

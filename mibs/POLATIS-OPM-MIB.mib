@@ -1,0 +1,532 @@
+
+POLATIS-OPM-MIB DEFINITIONS ::= BEGIN
+
+    -- ****************************************
+    -- Import definitions
+    IMPORTS
+        MODULE-IDENTITY, OBJECT-TYPE, 
+            NOTIFICATION-TYPE, Integer32, Unsigned32   FROM SNMPv2-SMI
+        TEXTUAL-CONVENTION, DisplayString              FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP, 
+            NOTIFICATION-GROUP                         FROM SNMPv2-CONF
+        polatisModules, polatisOpmMIB                  FROM POLATIS-GLOBAL-REG
+        polatisOxcPortIndex                            FROM POLATIS-OXC-MIB
+        polatisAlarmId, polatisAlarmStatus, 
+            polatisAlarmUser, polatisEventSubSwitch    FROM POLATIS-EVENT-MIB;
+
+            
+-- ****************************************
+-- Module definition
+polatisOpmMibModule MODULE-IDENTITY
+        LAST-UPDATED          "201001060000Z"    -- 06 Jan 2010
+        ORGANIZATION          "Polatis Inc."
+        CONTACT-INFO          
+        "Mail: Polatis Inc.
+               332/2 Cambridge Science Park
+               Milton Road
+               Cambridge
+               CB4 0WN
+        
+        Tel:   +44 (0)1223 424200
+                    
+        Fax:   +44 (0)1223 472015                       
+        
+        Email: support@polatis.com"
+    DESCRIPTION            
+        "This module contain definitions to control the optical 
+         power monitors in a Polatis switch.
+
+         The table polatisOpmConfigTable contains the configuration of
+         power monitors in the switch. There is one row for each port
+         that is fitted with a power monitor. The row index is 
+         polatisOxcPortIndex (see POLATIS-OXC-MIB for details), and if 
+         only some of the ports are fitted with power monitors then 
+         this table will be partially populated.
+
+         The table polatisOpmAlarmConfigTable contains the
+         configuration of power monitor alarms in the switch. There is
+         one row for each port that is fitted with a power monitor. 
+         This table also uses polatisOxcPortIndex as its index.
+
+         The table polatisOpmPowerTable reports the current power monitor 
+         measurements on each port that has a power monitor fitted.
+         This table also uses polatisOxcPortIndex as its index.  
+        "
+
+    REVISION               "201001060000Z"    -- 06 Jan 2010
+    DESCRIPTION            "Rework notifications to include extra 
+                            information. Add notification to be sent
+                            when the status of an alarm is updated."
+
+    REVISION               "200911110000Z"    -- 11 Nov 2009
+    DESCRIPTION            "Add trap definition for 'degraded service' 
+                            power monitor alarm to distinguish it from 
+                            'Loss of Service' power monitor alarm."
+
+    REVISION               "200910140000Z"    -- 14 Oct 2009
+    DESCRIPTION            "Added event objects to conformance
+                            statement. Removed imported objects that
+                            are not used. Changed SNMPv1 'INTEGER'
+                            object type to SNMPv2 'Integer32'
+                            equivalent."
+
+    REVISION               "200707040000Z"    -- 04 Jul 2007
+    DESCRIPTION            "Add event definitions"
+
+    REVISION               "200703290000Z"    -- 29 Mar 2007
+    DESCRIPTION            "Initial revision of this module"
+        ::= { polatisModules 4 }
+
+    
+-- ****************************************
+-- textual conventions
+PolatisOpmType ::= TEXTUAL-CONVENTION
+    STATUS       current
+    DESCRIPTION  
+        "Indicates how the OPM is configured on a port"
+    SYNTAX       INTEGER{ input (1),    -- input power monitor
+                          output (2) }  -- output power monitor
+
+
+-- ****************************************
+-- Configuration definitions
+polatisOpmConf OBJECT IDENTIFIER ::= { polatisOpmMIB 1 }
+
+polatisOpmGroups OBJECT IDENTIFIER ::= { polatisOpmConf 1 }
+
+polatisOpmCompls OBJECT IDENTIFIER ::= { polatisOpmConf 2 }
+
+
+-- ****************************************
+-- Object definitions
+polatisOpmObjs OBJECT IDENTIFIER ::= { polatisOpmMIB 2 }
+
+polatisOpmConfigObjs OBJECT IDENTIFIER ::= { polatisOpmObjs 1 }
+
+polatisOpmMeasureObjs OBJECT IDENTIFIER ::= { polatisOpmObjs 2 }
+
+-- ****************************************
+-- Event definitions
+polatisOpmEvents OBJECT IDENTIFIER ::= { polatisOpmMIB 3 }
+
+polatisOpmEventsV2 OBJECT IDENTIFIER ::= { polatisOpmEvents 0 }
+
+polatisOpmEventObjects OBJECT IDENTIFIER ::= { polatisOpmEvents 1 }
+
+-- ****************************************
+-- OPM Configuration table
+polatisOpmConfigTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PolatisOpmConfigEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION 
+        "The list of OPM configurations in the switch, There is one
+         row for each port in the switch matrix that has a power
+         monitor fitted.
+
+         Note that each SNMP GET or SET request to this table results
+         in a query to the underlying optical module to read its
+         state. If multiple objects need to be accessed then it is
+         more efficient to group them into a single SNMP message since
+         the agent will then make just one query to the optical
+         module. "
+    ::= { polatisOpmConfigObjs 1 }
+
+
+polatisOpmConfigEntry OBJECT-TYPE
+    SYNTAX      PolatisOpmConfigEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "An entry in the list of OPMs in the switch"
+    INDEX   { polatisOxcPortIndex }
+    ::= { polatisOpmConfigTable 1 }
+
+PolatisOpmConfigEntry ::= SEQUENCE {
+    polatisOpmWavelength   Unsigned32,
+    polatisOpmOffset       INTEGER, 
+    polatisOpmAtime        Unsigned32,
+    polatisOpmType         PolatisOpmType }
+
+polatisOpmWavelength OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "pm"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION  
+        "The wavelength of the light, used for calibrating OPM power 
+         measurements. If there is no OPM fitted on a port then 
+         the return value is zero.
+         
+         Note the units. For example, a wavelength of 1500.5nm would
+         be expressed as 1500500. However, when setting the wavelength
+         the OPM resolution is 10pm, so the least significant digit is
+         ignored."
+
+    ::= { polatisOpmConfigEntry 1 }
+
+polatisOpmOffset OBJECT-TYPE
+    SYNTAX      Integer32
+    UNITS       "mdBm"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+        "Fixed offset applied to reported power readings. If there is 
+         no OPM fitted on a port then the return value is zero.
+
+         Note the units. For example, an offset of -5.35dBm would be
+         expressed as -53500. However, when setting the offset the OPM
+         resolution is 10mdBm, so the least significant digit is
+         ignored."
+
+    ::= { polatisOpmConfigEntry 2 }
+
+polatisOpmAtime OBJECT-TYPE
+    SYNTAX      Unsigned32(1..32)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+        "Averaging time for power measurements. Currently the following 
+         values for the averaging times are defined:
+
+         <select>       averaging time
+            1              10 ms 
+            2              20 ms 
+            3              50 ms 
+            4              100 ms 
+            5              200 ms 
+            6              500 ms
+            7              1 sec 
+            8              2 sec
+        "
+    ::= { polatisOpmConfigEntry 3 }
+
+polatisOpmType OBJECT-TYPE
+    SYNTAX      PolatisOpmType
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION  
+        "Indicates whether an OPM is configured as an input or output monitor"
+    ::= { polatisOpmConfigEntry 4 }
+
+
+-- ****************************************
+-- OPM alarm configuration table
+polatisOpmAlarmConfigTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PolatisOpmAlarmConfigEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "The list of OPM alarm configurations in the switch"
+    ::= { polatisOpmConfigObjs 2 }
+
+
+polatisOpmAlarmConfigEntry OBJECT-TYPE
+    SYNTAX      PolatisOpmAlarmConfigEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "An entry in the list of OPMs in the switch"
+    INDEX   { polatisOxcPortIndex }
+    ::= { polatisOpmAlarmConfigTable 1 }
+
+PolatisOpmAlarmConfigEntry ::= SEQUENCE {
+    polatisOpmAlarmEdge       INTEGER,
+    polatisOpmAlarmLowThresh  INTEGER, 
+    polatisOpmAlarmHighThresh INTEGER, 
+    polatisOpmAlarmMode       INTEGER }
+
+polatisOpmAlarmEdge OBJECT-TYPE
+    SYNTAX      INTEGER{ low  (1),     -- alarm triggers on low threshold
+                         high (2),     -- alarm triggers on high threshold
+                         both (3) }    -- alarm triggers on both thresholds
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION  
+        "Controls the thresholds that trigger the alarm. 
+
+         When the alarm edge is set to 'low' the alarm will fire if
+         the measured power drops below the low threshold (set with
+         the object polatisOpmAlarmLowThresh). When the alarm edge is
+         set to 'high' the alarm will fire if the measured power rises
+         below the high threshold (set with the object
+         polatisOpmAlarmHighThresh). When the alarm edge is set to 'both'
+         the alarm will fire if the power crosses either the low or high
+         thresholds.
+
+         Note that for the 'low' edge type the alarm only fires when
+         the power drops from above the threshold to below the
+         threshold. It will not fire when the power rises from below
+         the threshold to above the threshold. FOr the 'high' edge
+         type the same logic applies, except that the alarm fires on a 
+         transition from below the high-power threshold to above it.
+        "
+    ::= { polatisOpmAlarmConfigEntry 1 }
+
+polatisOpmAlarmLowThresh OBJECT-TYPE
+    SYNTAX      Integer32
+    UNITS       "mdBm"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+        "Low-power threshold for triggering an alarm. If there is 
+         no OPM fitted on a port then the return value is zero.
+
+         Note the units. For example, a threshold of -15.00dBm would be
+         expressed as -15000. However, when setting the threshold the
+         OPM resolution is 10mdBm, so the least significant digit is
+         ignored."
+
+    ::= { polatisOpmAlarmConfigEntry 2 }
+
+polatisOpmAlarmHighThresh OBJECT-TYPE
+    SYNTAX      Integer32
+    UNITS       "mdBm"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+        "High-power threshold for triggering an alarm. If there is 
+         no OPM fitted on a port then the return value is zero.
+
+         Note the units. For example, a threshold of +15.00dBm would be
+         expressed as 15000. However, when setting the threshold the
+         OPM resolution is 10mdBm, so the least significant digit is
+         ignored."
+    ::= { polatisOpmAlarmConfigEntry 3 }
+
+polatisOpmAlarmMode OBJECT-TYPE
+    SYNTAX      INTEGER{ off  (1),        -- alarm is off
+                         single (2),      -- alarm in single-shot mode
+                         continuous (3) } -- alarm in continuous mode
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION  
+        "Controls the alarm triger mode.
+
+         off         - the alarm is disabled on thie port
+
+         single      - when the alarm fires it is automatically disabled to
+                       prevent it firing again.
+
+         continuous  - when the alarm fires it remains active and will
+                       fire again the next time the power crosses the 
+                       configured threshold.
+        "
+    ::= { polatisOpmAlarmConfigEntry 4 }
+
+
+-- ****************************************
+-- OPM power readings table
+polatisOpmPowerTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PolatisOpmPowerEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "The list of OPM power measurements"
+    ::= { polatisOpmMeasureObjs 2 }
+
+
+polatisOpmPowerEntry OBJECT-TYPE
+    SYNTAX      PolatisOpmPowerEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "An entry in the list of OPM powers"
+    INDEX   { polatisOxcPortIndex }
+    ::= { polatisOpmPowerTable 1 }
+
+PolatisOpmPowerEntry ::= SEQUENCE {
+    polatisOpmPower       INTEGER }
+
+polatisOpmPower OBJECT-TYPE
+    SYNTAX      Integer32
+    UNITS       "mdBm"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Current power measured at OPM.
+
+         Note the units. For example, a power 5.25dBm would be
+         expressed as 5250"
+    ::= { polatisOpmPowerEntry 1 }
+
+
+-- ****************************************
+-- Events
+
+polatisOpmAlarmPort OBJECT-TYPE
+    SYNTAX      Unsigned32(0..65535)
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The port for which the power monitor alarm fired"
+    ::= { polatisOpmEventObjects 1 }
+
+polatisOpmAlarmPortLabel OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The text label for the alarmed port"
+    ::= { polatisOpmEventObjects 2 }
+
+polatisOpmPowerMonitorAlarm NOTIFICATION-TYPE
+    OBJECTS { polatisOpmAlarmPort }
+    STATUS obsolete
+    DESCRIPTION 
+        "A 'Loss of Service' power monitor alarm has triggered"
+    ::= { polatisOpmEventsV2 1 }
+
+polatisOpmDegradedPowerMonitorAlarm NOTIFICATION-TYPE
+    OBJECTS { polatisOpmAlarmPort }
+    STATUS obsolete
+    DESCRIPTION 
+        "A 'Degraded Signal' power monitor alarm has triggered"
+    ::= { polatisOpmEventsV2 2 }
+
+polatisOpmPowerMonitorAlarmV2 NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmStatus,
+              polatisEventSubSwitch,
+              polatisOpmAlarmPort,
+              polatisOpmAlarmPortLabel }
+    STATUS current
+    DESCRIPTION 
+        "A 'Loss of Service' power monitor alarm has triggered"
+    ::= { polatisOpmEventsV2 3 }
+
+polatisOpmPowerMonitorAlarmUpdated NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmUser,
+              polatisAlarmStatus }
+    STATUS current
+    DESCRIPTION 
+        "The status of a 'Loss of Service' power monitor alarm has 
+         been updated. The new status is reported in this event."
+    ::= { polatisOpmEventsV2 4 }
+
+polatisOpmDegrPowerMonitorAlarm NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmStatus,
+              polatisEventSubSwitch,
+              polatisOpmAlarmPort,
+              polatisOpmAlarmPortLabel }
+    STATUS current
+    DESCRIPTION 
+        "A 'Degraded Signal' power monitor alarm has triggered"
+    ::= { polatisOpmEventsV2 5 }
+
+polatisOpmDegrPowerMonitorAlarmUpdated NOTIFICATION-TYPE
+    OBJECTS { polatisAlarmId,
+              polatisAlarmUser,
+              polatisAlarmStatus }
+    STATUS current
+    DESCRIPTION 
+        "The status of a 'Degraded Signal' power monitor alarm has 
+         been updated. The new status is reported in this event."
+    ::= { polatisOpmEventsV2 6 }
+
+
+
+-- ****************************************
+-- Compliance statements
+polatisOpmConfigGroup OBJECT-GROUP
+    OBJECTS     { polatisOpmWavelength,
+                  polatisOpmOffset,
+                  polatisOpmAtime,
+                  polatisOpmType,
+                  polatisOpmAlarmEdge,
+                  polatisOpmAlarmLowThresh,
+                  polatisOpmAlarmHighThresh,
+                  polatisOpmAlarmMode }
+    STATUS      current
+    DESCRIPTION "The objects to configure OPMs on the switch"
+    ::= { polatisOpmGroups 1 }
+    
+polatisOpmMeasureGroup OBJECT-GROUP
+    OBJECTS     { polatisOpmPower }
+    STATUS      current
+    DESCRIPTION "The objects to measure OPM ouput on the switch"
+    ::= { polatisOpmGroups 2 }
+    
+polatisOpmNotificationsGroup NOTIFICATION-GROUP
+    NOTIFICATIONS { polatisOpmPowerMonitorAlarm }
+    STATUS      obsolete
+    DESCRIPTION
+        "The notifications sent by this MIB."
+    ::= { polatisOpmGroups 3 }
+
+polatisOpmEventGroup OBJECT-GROUP
+    OBJECTS     { polatisOpmAlarmPort }
+    STATUS      obsolete
+    DESCRIPTION "Objects associated with OPM events"
+    ::= { polatisOpmGroups 4 }
+    
+polatisOpmNotificationsGroupV2 NOTIFICATION-GROUP
+    NOTIFICATIONS { polatisOpmPowerMonitorAlarm,
+                    polatisOpmDegradedPowerMonitorAlarm }
+    STATUS      obsolete
+    DESCRIPTION
+        "The notifications sent by this MIB."
+    ::= { polatisOpmGroups 5 }
+
+polatisOpmEventGroupV2 OBJECT-GROUP
+    OBJECTS     { polatisOpmAlarmPort,
+                  polatisOpmAlarmPortLabel }
+    STATUS      current
+    DESCRIPTION "Objects associated with OPM events"
+    ::= { polatisOpmGroups 6 }
+    
+polatisOpmNotificationsGroupV3 NOTIFICATION-GROUP
+    NOTIFICATIONS { polatisOpmPowerMonitorAlarmV2,
+                    polatisOpmDegrPowerMonitorAlarm,
+                    polatisOpmPowerMonitorAlarmUpdated,
+                    polatisOpmDegrPowerMonitorAlarmUpdated }
+    STATUS      current
+    DESCRIPTION
+        "The notifications sent by this MIB."
+    ::= { polatisOpmGroups 7 }
+
+polatisOpmComplianceV1 MODULE-COMPLIANCE
+    STATUS      deprecated
+    DESCRIPTION "All controllers should provide this level of support"
+    MODULE          -- this module
+    MANDATORY-GROUPS { polatisOpmGroups }
+    ::= { polatisOpmCompls 1 }
+    
+polatisOpmComplianceV2 MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION "All controllers should provide this level of support"
+    MODULE          -- this module
+    MANDATORY-GROUPS { polatisOpmConfigGroup,
+                       polatisOpmMeasureGroup }
+    ::= { polatisOpmCompls 2 }
+    
+polatisOpmComplianceEvtV1 MODULE-COMPLIANCE
+    STATUS      obsolete
+    DESCRIPTION "Implementation incuding notifications"
+    MODULE          -- this module
+    MANDATORY-GROUPS { polatisOpmConfigGroup,
+                       polatisOpmMeasureGroup,
+                       polatisOpmNotificationsGroup,
+                       polatisOpmEventGroup }
+    ::= { polatisOpmCompls 3 }
+    
+polatisOpmComplianceEvtV2 MODULE-COMPLIANCE
+    STATUS      obsolete
+    DESCRIPTION "Implementation incuding notifications"
+    MODULE          -- this module
+    MANDATORY-GROUPS { polatisOpmConfigGroup,
+                       polatisOpmMeasureGroup,
+                       polatisOpmNotificationsGroupV2,
+                       polatisOpmEventGroup }
+    ::= { polatisOpmCompls 4 }
+    
+polatisOpmComplianceEvtV3 MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION "Implementation incuding notifications"
+    MODULE          -- this module
+    MANDATORY-GROUPS { polatisOpmConfigGroup,
+                       polatisOpmMeasureGroup,
+                       polatisOpmNotificationsGroupV3,
+                       polatisOpmEventGroupV2 }
+    ::= { polatisOpmCompls 5 }
+    
+
+END
+                
